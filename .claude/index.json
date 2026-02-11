@@ -1,0 +1,119 @@
+{
+  "timestamp": "2026-02-11T15:04:21+08:00",
+  "project": {
+    "name": "AssetGuard",
+    "description": "Android 资产管理/守护应用，基于 Kotlin + Jetpack Compose + Material3",
+    "platform": "Android",
+    "language": "Kotlin",
+    "buildSystem": "Gradle 8.13 + Kotlin DSL + Version Catalog",
+    "rootPath": "."
+  },
+  "modules": [
+    {
+      "name": "app",
+      "path": "app/",
+      "type": "android-application",
+      "language": "Kotlin",
+      "packageName": "com.zipper.compose.assetguard",
+      "documentPath": "app/CLAUDE.md",
+      "entry": {
+        "mainActivity": "app/src/main/java/com/zipper/compose/assetguard/MainActivity.kt",
+        "manifest": "app/src/main/AndroidManifest.xml"
+      },
+      "interfaces": [],
+      "dependencies": {
+        "buildConfig": "app/build.gradle.kts",
+        "key": [
+          "androidx.core:core-ktx:1.17.0",
+          "androidx.lifecycle:lifecycle-runtime-ktx:2.10.0",
+          "androidx.activity:activity-compose:1.12.2",
+          "androidx.compose:compose-bom:2024.09.00",
+          "androidx.compose.material3:material3"
+        ]
+      },
+      "tests": {
+        "unitTest": {
+          "path": "app/src/test/java/com/zipper/compose/assetguard/",
+          "files": ["ExampleUnitTest.kt"],
+          "framework": "JUnit 4",
+          "status": "placeholder"
+        },
+        "instrumentedTest": {
+          "path": "app/src/androidTest/java/com/zipper/compose/assetguard/",
+          "files": ["ExampleInstrumentedTest.kt"],
+          "framework": "AndroidX Test + JUnit4",
+          "runner": "androidx.test.runner.AndroidJUnitRunner",
+          "status": "placeholder"
+        }
+      },
+      "theme": {
+        "path": "app/src/main/java/com/zipper/compose/assetguard/ui/theme/",
+        "files": ["Theme.kt", "Color.kt", "Type.kt"]
+      },
+      "resources": {
+        "path": "app/src/main/res/",
+        "directories": ["drawable", "mipmap-anydpi-v26", "mipmap-hdpi", "mipmap-mdpi", "mipmap-xhdpi", "mipmap-xxhdpi", "mipmap-xxxhdpi", "values", "xml"]
+      },
+      "importantPaths": [
+        "app/src/main/java/com/zipper/compose/assetguard/MainActivity.kt",
+        "app/src/main/java/com/zipper/compose/assetguard/ui/theme/Theme.kt",
+        "app/src/main/java/com/zipper/compose/assetguard/ui/theme/Color.kt",
+        "app/src/main/java/com/zipper/compose/assetguard/ui/theme/Type.kt",
+        "app/build.gradle.kts",
+        "app/src/main/AndroidManifest.xml"
+      ]
+    }
+  ],
+  "rootDocument": "CLAUDE.md",
+  "buildFiles": [
+    "settings.gradle.kts",
+    "build.gradle.kts",
+    "app/build.gradle.kts",
+    "gradle/libs.versions.toml",
+    "gradle.properties",
+    "gradle/wrapper/gradle-wrapper.properties"
+  ],
+  "coverage": {
+    "totalFiles": 20,
+    "scannedFiles": 20,
+    "coveragePercent": 100,
+    "skippedBinary": [
+      "gradle/wrapper/gradle-wrapper.jar",
+      "app/src/main/res/mipmap-hdpi/ic_launcher.webp",
+      "app/src/main/res/mipmap-hdpi/ic_launcher_round.webp",
+      "app/src/main/res/mipmap-mdpi/ic_launcher.webp",
+      "app/src/main/res/mipmap-mdpi/ic_launcher_round.webp",
+      "app/src/main/res/mipmap-xhdpi/ic_launcher.webp",
+      "app/src/main/res/mipmap-xhdpi/ic_launcher_round.webp",
+      "app/src/main/res/mipmap-xxhdpi/ic_launcher.webp",
+      "app/src/main/res/mipmap-xxhdpi/ic_launcher_round.webp",
+      "app/src/main/res/mipmap-xxxhdpi/ic_launcher.webp",
+      "app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.webp"
+    ],
+    "skippedDirectories": [
+      ".git/",
+      ".idea/",
+      ".claude/skills/"
+    ],
+    "skippedReasons": {
+      ".git/": "版本控制系统内部目录",
+      ".idea/": "IDE 配置目录",
+      ".claude/skills/": "Claude Skills 参考文档，非项目源码",
+      "*.webp": "二进制图片资源",
+      "gradle-wrapper.jar": "Gradle Wrapper 二进制"
+    }
+  },
+  "gaps": {
+    "app": {
+      "missingInterfaces": true,
+      "missingDataModel": true,
+      "missingRealTests": true,
+      "missingNavigation": true,
+      "missingDI": true,
+      "missingLintConfig": true,
+      "notes": "项目处于初始搭建阶段，业务代码尚未开始编写。所有缺口属于预期状态。"
+    }
+  },
+  "truncated": false,
+  "nextSteps": []
+}
