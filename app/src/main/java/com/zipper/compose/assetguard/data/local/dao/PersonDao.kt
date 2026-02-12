@@ -34,7 +34,7 @@ interface PersonDao {
         SELECT p.*,
             COALESCE(SUM(l.amount), 0) AS totalLent,
             COALESCE((SELECT SUM(r.amount) FROM repayments r INNER JOIN loans l2 ON r.loanId = l2.id WHERE l2.personId = p.id), 0) AS totalRepaid,
-            COALESCE((SELECT COUNT(*) FROM loans l3 WHERE l3.personId = p.id AND l3.status != 2), 0) AS unpaidLoanCount
+            COALESCE((SELECT COUNT(*) FROM loans l3 WHERE l3.personId = p.id AND l3.status NOT IN (2, 6)), 0) AS unpaidLoanCount
         FROM persons p
         LEFT JOIN loans l ON l.personId = p.id
         GROUP BY p.id
@@ -46,7 +46,7 @@ interface PersonDao {
         SELECT p.*,
             COALESCE(SUM(l.amount), 0) AS totalLent,
             COALESCE((SELECT SUM(r.amount) FROM repayments r INNER JOIN loans l2 ON r.loanId = l2.id WHERE l2.personId = p.id), 0) AS totalRepaid,
-            COALESCE((SELECT COUNT(*) FROM loans l3 WHERE l3.personId = p.id AND l3.status != 2), 0) AS unpaidLoanCount
+            COALESCE((SELECT COUNT(*) FROM loans l3 WHERE l3.personId = p.id AND l3.status NOT IN (2, 6)), 0) AS unpaidLoanCount
         FROM persons p
         LEFT JOIN loans l ON l.personId = p.id
         WHERE p.name LIKE '%' || :query || '%' OR p.phone LIKE '%' || :query || '%'
@@ -55,7 +55,7 @@ interface PersonDao {
     """)
     fun searchWithSummary(query: String): Flow<List<PersonWithSummary>>
 
-    @Query("SELECT COUNT(*) FROM loans WHERE personId = :personId AND status != 2")
+    @Query("SELECT COUNT(*) FROM loans WHERE personId = :personId AND status NOT IN (2, 6)")
     suspend fun getUnpaidLoanCount(personId: Long): Int
 
     @Query("SELECT * FROM persons ORDER BY updatedAt DESC")

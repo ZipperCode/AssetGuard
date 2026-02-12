@@ -10,6 +10,9 @@ import com.zipper.compose.assetguard.data.repository.LoanRepository
 import com.zipper.compose.assetguard.data.repository.PaymentMethodRepository
 import com.zipper.compose.assetguard.data.repository.RepaymentRepository
 import com.zipper.compose.assetguard.di.AppContainer
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -18,7 +21,8 @@ import kotlinx.coroutines.launch
 
 data class LoanDetailUiState(
     val loanWithRepayments: LoanWithRepayments? = null,
-    val paymentMethods: Map<Long, PaymentMethodEntity> = emptyMap()
+    val paymentMethods: Map<Long, PaymentMethodEntity> = emptyMap(),
+    val pendingDeleteRepaymentId: Long? = null
 )
 
 class LoanDetailViewModel(
@@ -28,20 +32,41 @@ class LoanDetailViewModel(
     private val loanId: Long
 ) : ViewModel() {
 
+    private val _pendingDeleteRepaymentId = MutableStateFlow<Long?>(null)
+
+    private var pendingDeleteJob: Job? = null
+    private var pendingDeleteRepayment: RepaymentEntity? = null
+
     val uiState: StateFlow<LoanDetailUiState> = combine(
         loanRepository.observeWithRepayments(loanId),
-        paymentMethodRepository.observeAll()
-    ) { loanWithRepayments, methods ->
+        paymentMethodRepository.observeAll(),
+        _pendingDeleteRepaymentId
+    ) { loanWithRepayments, methods, pendingId ->
         LoanDetailUiState(
             loanWithRepayments = loanWithRepayments,
-            paymentMethods = methods.associateBy { it.id }
+            paymentMethods = methods.associateBy { it.id },
+            pendingDeleteRepaymentId = pendingId
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), LoanDetailUiState())
 
     fun deleteRepayment(repayment: RepaymentEntity) {
-        viewModelScope.launch {
+        pendingDeleteJob?.cancel()
+        pendingDeleteRepayment = repayment
+        _pendingDeleteRepaymentId.value = repayment.id
+
+        pendingDeleteJob = viewModelScope.launch {
+            delay(5000)
             repaymentRepository.delete(repayment)
+            _pendingDeleteRepaymentId.value = null
+            pendingDeleteRepayment = null
         }
+    }
+
+    fun undoDeleteRepayment() {
+        pendingDeleteJob?.cancel()
+        pendingDeleteJob = null
+        pendingDeleteRepayment = null
+        _pendingDeleteRepaymentId.value = null
     }
 
     companion object {

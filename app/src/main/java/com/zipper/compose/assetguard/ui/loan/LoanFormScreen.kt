@@ -131,6 +131,8 @@ fun LoanFormScreen(
                     label = { Text("到期日（可选）") },
                     modifier = Modifier.weight(1f),
                     readOnly = true,
+                    isError = uiState.dateError != null,
+                    supportingText = uiState.dateError?.let { { Text(it) } },
                     interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }.also {
                         LaunchedEffect(it) {
                             it.interactions.collect { interaction ->
@@ -165,6 +167,8 @@ fun LoanFormScreen(
                         .fillMaxWidth()
                         .menuAnchor(MenuAnchorType.PrimaryNotEditable),
                     readOnly = true,
+                    isError = uiState.paymentMethodError != null,
+                    supportingText = uiState.paymentMethodError?.let { { Text(it) } },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = paymentMethodExpanded) }
                 )
                 ExposedDropdownMenu(

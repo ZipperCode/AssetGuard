@@ -26,9 +26,14 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -63,8 +68,23 @@ fun LoanDetailScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var repaymentToDelete by remember { mutableStateOf<RepaymentEntity?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
     val loanWithRepayments = uiState.loanWithRepayments
+
+    // 可恢复删除 Snackbar
+    LaunchedEffect(uiState.pendingDeleteRepaymentId) {
+        uiState.pendingDeleteRepaymentId?.let {
+            val result = snackbarHostState.showSnackbar(
+                message = "还款记录将被删除",
+                actionLabel = "撤销",
+                duration = SnackbarDuration.Short
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                viewModel.undoDeleteRepayment()
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -90,7 +110,8 @@ fun LoanDetailScreen(
                     Icon(Icons.Default.Add, contentDescription = "添加还款")
                 }
             }
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
         if (loanWithRepayments == null) {
             EmptyStateView(

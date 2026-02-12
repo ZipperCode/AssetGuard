@@ -1,6 +1,7 @@
 package com.zipper.compose.assetguard.ui.person
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -20,6 +21,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -27,8 +29,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -46,6 +50,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.zipper.compose.assetguard.data.local.entity.LoanEntity
 import com.zipper.compose.assetguard.data.local.entity.LoanWithRepayments
 import com.zipper.compose.assetguard.di.AppContainer
+import com.zipper.compose.assetguard.ui.components.BatchActionBar
 import com.zipper.compose.assetguard.ui.components.ConfirmDialog
 import com.zipper.compose.assetguard.ui.components.DueDateIndicator
 import com.zipper.compose.assetguard.ui.components.EmptyStateView
@@ -54,7 +59,7 @@ import com.zipper.compose.assetguard.ui.components.StatusChip
 import com.zipper.compose.assetguard.util.DateUtils
 import com.zipper.compose.assetguard.util.MoneyUtils
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun PersonDetailScreen(
     personId: Long,
@@ -66,8 +71,10 @@ fun PersonDetailScreen(
     viewModel: PersonDetailViewModel = viewModel(factory = PersonDetailViewModel.factory(container, personId))
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val batchMessage by viewModel.batchMessage.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var loanToDelete by remember { mutableStateOf<LoanEntity?>(null) }
+    var showArchiveConfirm by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.deleteError) {
         uiState.deleteError?.let {
@@ -76,25 +83,57 @@ fun PersonDetailScreen(
         }
     }
 
+    // 可恢复删除 Snackbar
+    LaunchedEffect(uiState.pendingDeleteLoanName) {
+        uiState.pendingDeleteLoanName?.let {
+            val result = snackbarHostState.showSnackbar(
+                message = "借条将被删除（含还款记录）",
+                actionLabel = "撤销",
+                duration = SnackbarDuration.Short
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                viewModel.undoDeleteLoan()
+            }
+        }
+    }
+
+    // 批量操作结果
+    LaunchedEffect(batchMessage) {
+        batchMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearBatchMessage()
+        }
+    }
+
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(uiState.person?.name ?: "联系人详情") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+            if (uiState.isLoanSelectionMode) {
+                BatchActionBar(
+                    selectedCount = uiState.selectedLoanIds.size,
+                    onClose = { viewModel.exitLoanSelectionMode() },
+                    onArchive = { showArchiveConfirm = true }
+                )
+            } else {
+                TopAppBar(
+                    title = { Text(uiState.person?.name ?: "联系人详情") },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = onEditPerson) {
+                            Icon(Icons.Default.Edit, contentDescription = "编辑")
+                        }
                     }
-                },
-                actions = {
-                    IconButton(onClick = onEditPerson) {
-                        Icon(Icons.Default.Edit, contentDescription = "编辑")
-                    }
-                }
-            )
+                )
+            }
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddLoan) {
-                Icon(Icons.Default.Add, contentDescription = "添加借条")
+            if (!uiState.isLoanSelectionMode) {
+                FloatingActionButton(onClick = onAddLoan) {
+                    Icon(Icons.Default.Add, contentDescription = "添加借条")
+                }
             }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
@@ -136,8 +175,25 @@ fun PersonDetailScreen(
                 items(uiState.loans, key = { it.loan.id }) { loanWithRepayments ->
                     LoanCard(
                         loanWithRepayments = loanWithRepayments,
-                        onClick = { onLoanClick(loanWithRepayments.loan.id) },
-                        onDelete = { loanToDelete = loanWithRepayments.loan }
+                        isSelectionMode = uiState.isLoanSelectionMode,
+                        isSelected = loanWithRepayments.loan.id in uiState.selectedLoanIds,
+                        onClick = {
+                            if (uiState.isLoanSelectionMode) {
+                                viewModel.toggleLoanSelection(loanWithRepayments.loan.id)
+                            } else {
+                                onLoanClick(loanWithRepayments.loan.id)
+                            }
+                        },
+                        onLongClick = {
+                            if (!uiState.isLoanSelectionMode) {
+                                viewModel.enterLoanSelectionMode(loanWithRepayments.loan.id)
+                            }
+                        },
+                        onDelete = {
+                            if (!uiState.isLoanSelectionMode) {
+                                loanToDelete = loanWithRepayments.loan
+                            }
+                        }
                     )
                 }
             }
@@ -145,14 +201,28 @@ fun PersonDetailScreen(
     }
 
     loanToDelete?.let { loan ->
+        val repaymentCount = uiState.loans.find { it.loan.id == loan.id }?.repayments?.size ?: 0
         ConfirmDialog(
             title = "删除借条",
-            message = "确定要删除这笔 ${MoneyUtils.formatCents(loan.amount)} 的借条吗？相关还款记录也会被删除。",
+            message = "确定要删除这笔 ${MoneyUtils.formatCents(loan.amount)} 的借条吗？",
+            impactDescription = if (repaymentCount > 0) "将同时删除 $repaymentCount 条还款记录" else null,
             onConfirm = {
                 viewModel.deleteLoan(loan)
                 loanToDelete = null
             },
             onDismiss = { loanToDelete = null }
+        )
+    }
+
+    if (showArchiveConfirm) {
+        ConfirmDialog(
+            title = "批量归档",
+            message = "确定要归档选中的 ${uiState.selectedLoanIds.size} 条借条吗？\n归档后借条将不再参与统计。",
+            onConfirm = {
+                viewModel.batchArchiveLoans()
+                showArchiveConfirm = false
+            },
+            onDismiss = { showArchiveConfirm = false }
         )
     }
 }
@@ -220,10 +290,14 @@ private fun PersonInfoCard(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun LoanCard(
     loanWithRepayments: LoanWithRepayments,
+    isSelectionMode: Boolean,
+    isSelected: Boolean,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
     onDelete: () -> Unit
 ) {
     val loan = loanWithRepayments.loan
@@ -234,7 +308,13 @@ private fun LoanCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            ),
+        colors = if (isSelected) CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer
+        ) else CardDefaults.cardColors()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(
@@ -242,16 +322,26 @@ private fun LoanCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                if (isSelectionMode) {
+                    Checkbox(
+                        checked = isSelected,
+                        onCheckedChange = { onClick() }
+                    )
+                    Spacer(Modifier.width(8.dp))
+                }
                 MoneyText(
                     cents = loan.amount,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
+                Spacer(Modifier.weight(1f))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     StatusChip(status = loan.status)
-                    Spacer(Modifier.width(4.dp))
-                    IconButton(onClick = onDelete) {
-                        Icon(Icons.Default.Delete, contentDescription = "删除", modifier = Modifier)
+                    if (!isSelectionMode) {
+                        Spacer(Modifier.width(4.dp))
+                        IconButton(onClick = onDelete) {
+                            Icon(Icons.Default.Delete, contentDescription = "删除", modifier = Modifier)
+                        }
                     }
                 }
             }

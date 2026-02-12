@@ -6,6 +6,7 @@ import com.zipper.compose.assetguard.data.local.dao.LoanDao
 import com.zipper.compose.assetguard.data.local.dao.PaymentMethodDao
 import com.zipper.compose.assetguard.data.local.dao.PersonDao
 import com.zipper.compose.assetguard.data.local.dao.RepaymentDao
+import com.zipper.compose.assetguard.data.preferences.UserPreferencesRepository
 import com.zipper.compose.assetguard.data.repository.LoanRepository
 import com.zipper.compose.assetguard.data.repository.PaymentMethodRepository
 import com.zipper.compose.assetguard.data.repository.PersonRepository
@@ -24,6 +25,7 @@ class AppContainer(context: Context) {
     val loanRepository: LoanRepository by lazy { LoanRepository(loanDao) }
     val repaymentRepository: RepaymentRepository by lazy { RepaymentRepository(repaymentDao, loanDao) }
     val paymentMethodRepository: PaymentMethodRepository by lazy { PaymentMethodRepository(paymentMethodDao) }
+    val userPreferencesRepository: UserPreferencesRepository by lazy { UserPreferencesRepository(context) }
 
     fun getDatabase(): AppDatabase = database
 }

@@ -1,6 +1,10 @@
 package com.zipper.compose.assetguard.ui.home
 
-import androidx.compose.foundation.clickable
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -14,22 +18,26 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -40,30 +48,43 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.zipper.compose.assetguard.data.local.entity.PersonWithSummary
 import com.zipper.compose.assetguard.di.AppContainer
+import com.zipper.compose.assetguard.ui.components.BatchActionBar
 import com.zipper.compose.assetguard.ui.components.ConfirmDialog
 import com.zipper.compose.assetguard.ui.components.DueDateIndicator
 import com.zipper.compose.assetguard.ui.components.EmptyStateView
 import com.zipper.compose.assetguard.ui.components.MoneyText
 import com.zipper.compose.assetguard.util.MoneyUtils
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     container: AppContainer,
     onPersonClick: (Long) -> Unit,
     onAddPerson: () -> Unit,
     onSettingsClick: () -> Unit,
+    onSearchClick: () -> Unit = {},
     viewModel: HomeViewModel = viewModel(factory = HomeViewModel.factory(container))
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val batchMessage by viewModel.batchMessage.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
     var personToDelete by remember { mutableStateOf<PersonWithSummary?>(null) }
+    var showArchiveConfirm by remember { mutableStateOf(false) }
+
+    // 批量导出 launcher
+    val batchExportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri: Uri? ->
+        uri?.let { viewModel.batchExport(context, it) }
+    }
 
     LaunchedEffect(uiState.deleteError) {
         uiState.deleteError?.let {
@@ -72,20 +93,59 @@ fun HomeScreen(
         }
     }
 
+    // 可恢复删除 Snackbar
+    LaunchedEffect(uiState.pendingDeletePersonName) {
+        uiState.pendingDeletePersonName?.let { name ->
+            val result = snackbarHostState.showSnackbar(
+                message = "「$name」将被删除",
+                actionLabel = "撤销",
+                duration = SnackbarDuration.Short
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                viewModel.undoDelete()
+            }
+        }
+    }
+
+    // 批量操作结果
+    LaunchedEffect(batchMessage) {
+        batchMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearBatchMessage()
+        }
+    }
+
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("资产守护") },
-                actions = {
-                    IconButton(onClick = onSettingsClick) {
-                        Icon(Icons.Default.Settings, contentDescription = "设置")
+            if (uiState.isSelectionMode) {
+                BatchActionBar(
+                    selectedCount = uiState.selectedPersonIds.size,
+                    onClose = { viewModel.exitSelectionMode() },
+                    onRemind = { viewModel.batchRemind(context) },
+                    onExport = {
+                        batchExportLauncher.launch("assetguard_partial_backup.json")
+                    },
+                    onArchive = { showArchiveConfirm = true }
+                )
+            } else {
+                TopAppBar(
+                    title = { Text("资产守护") },
+                    actions = {
+                        IconButton(onClick = onSearchClick) {
+                            Icon(Icons.Default.Search, contentDescription = "搜索")
+                        }
+                        IconButton(onClick = onSettingsClick) {
+                            Icon(Icons.Default.Settings, contentDescription = "设置")
+                        }
                     }
-                }
-            )
+                )
+            }
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onAddPerson) {
-                Icon(Icons.Default.PersonAdd, contentDescription = "添加联系人")
+            if (!uiState.isSelectionMode) {
+                FloatingActionButton(onClick = onAddPerson) {
+                    Icon(Icons.Default.PersonAdd, contentDescription = "添加联系人")
+                }
             }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
@@ -97,12 +157,15 @@ fun HomeScreen(
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // 统计卡片
+            // KPI 统计卡片
             item {
                 SummaryCard(
                     totalLent = uiState.totalLent,
                     totalRepaid = uiState.totalRepaid,
-                    totalOutstanding = uiState.totalOutstanding
+                    totalOutstanding = uiState.totalOutstanding,
+                    overdueCount = uiState.overdueCount,
+                    dueTodayCount = uiState.dueTodayCount,
+                    totalPending = uiState.totalPending
                 )
             }
 
@@ -113,15 +176,17 @@ fun HomeScreen(
                 }
             }
 
-            // 搜索栏
-            item {
-                OutlinedTextField(
-                    value = uiState.searchQuery,
-                    onValueChange = viewModel::onSearchQueryChanged,
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("搜索联系人...") },
-                    singleLine = true
-                )
+            // 搜索栏（非选择模式显示）
+            if (!uiState.isSelectionMode) {
+                item {
+                    OutlinedTextField(
+                        value = uiState.searchQuery,
+                        onValueChange = viewModel::onSearchQueryChanged,
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("搜索联系人...") },
+                        singleLine = true
+                    )
+                }
             }
 
             // 联系人列表
@@ -137,8 +202,25 @@ fun HomeScreen(
                 items(uiState.persons, key = { it.person.id }) { personWithSummary ->
                     PersonCard(
                         personWithSummary = personWithSummary,
-                        onClick = { onPersonClick(personWithSummary.person.id) },
-                        onDelete = { personToDelete = personWithSummary }
+                        isSelectionMode = uiState.isSelectionMode,
+                        isSelected = personWithSummary.person.id in uiState.selectedPersonIds,
+                        onClick = {
+                            if (uiState.isSelectionMode) {
+                                viewModel.togglePersonSelection(personWithSummary.person.id)
+                            } else {
+                                onPersonClick(personWithSummary.person.id)
+                            }
+                        },
+                        onLongClick = {
+                            if (!uiState.isSelectionMode) {
+                                viewModel.enterSelectionMode(personWithSummary.person.id)
+                            }
+                        },
+                        onDelete = {
+                            if (!uiState.isSelectionMode) {
+                                personToDelete = personWithSummary
+                            }
+                        }
                     )
                 }
             }
@@ -159,13 +241,28 @@ fun HomeScreen(
             onDismiss = { personToDelete = null }
         )
     }
+
+    if (showArchiveConfirm) {
+        ConfirmDialog(
+            title = "批量归档",
+            message = "确定要归档选中的 ${uiState.selectedPersonIds.size} 位联系人的所有借条吗？\n归档后借条将不再参与统计。",
+            onConfirm = {
+                viewModel.batchArchive()
+                showArchiveConfirm = false
+            },
+            onDismiss = { showArchiveConfirm = false }
+        )
+    }
 }
 
 @Composable
 private fun SummaryCard(
     totalLent: Long,
     totalRepaid: Long,
-    totalOutstanding: Long
+    totalOutstanding: Long,
+    overdueCount: Int,
+    dueTodayCount: Int,
+    totalPending: Long
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -188,6 +285,33 @@ private fun SummaryCard(
                 SummaryItem("已收回", totalRepaid)
                 SummaryItem("待追回", totalOutstanding)
             }
+
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 12.dp),
+                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.12f)
+            )
+
+            // KPI 行
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                KpiItem(
+                    label = "逾期",
+                    value = "$overdueCount 笔",
+                    isAlert = overdueCount > 0
+                )
+                KpiItem(
+                    label = "今日到期",
+                    value = "$dueTodayCount 笔",
+                    isAlert = dueTodayCount > 0
+                )
+                KpiItem(
+                    label = "待回款",
+                    value = MoneyUtils.formatCents(totalPending),
+                    isAlert = false
+                )
+            }
         }
     }
 }
@@ -206,6 +330,25 @@ private fun SummaryItem(label: String, amount: Long) {
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onPrimaryContainer
+        )
+    }
+}
+
+@Composable
+private fun KpiItem(label: String, value: String, isAlert: Boolean) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = if (isAlert) MaterialTheme.colorScheme.error
+            else MaterialTheme.colorScheme.onPrimaryContainer
         )
     }
 }
@@ -261,16 +404,26 @@ private fun DueSoonSection(loans: List<com.zipper.compose.assetguard.data.local.
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun PersonCard(
     personWithSummary: PersonWithSummary,
+    isSelectionMode: Boolean,
+    isSelected: Boolean,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
     onDelete: () -> Unit
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            ),
+        colors = if (isSelected) CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.secondaryContainer
+        ) else CardDefaults.cardColors()
     ) {
         Row(
             modifier = Modifier
@@ -279,6 +432,13 @@ private fun PersonCard(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            if (isSelectionMode) {
+                Checkbox(
+                    checked = isSelected,
+                    onCheckedChange = { onClick() }
+                )
+                Spacer(Modifier.width(8.dp))
+            }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = personWithSummary.person.name,
@@ -314,12 +474,14 @@ private fun PersonCard(
                     }
                 }
             }
-            IconButton(onClick = onDelete) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "删除",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            if (!isSelectionMode) {
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "删除",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
         }
     }

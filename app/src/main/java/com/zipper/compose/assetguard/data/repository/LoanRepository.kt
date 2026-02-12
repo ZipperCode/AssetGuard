@@ -23,6 +23,8 @@ class LoanRepository(private val loanDao: LoanDao) {
 
     fun observeLoansByPerson(personId: Long): Flow<List<LoanEntity>> = loanDao.observeLoansByPerson(personId)
 
+    suspend fun getByPersonId(personId: Long): List<LoanEntity> = loanDao.getByPersonId(personId)
+
     suspend fun updateStatus(loanId: Long, status: Int) = loanDao.updateStatus(loanId, status)
 
     suspend fun getOverdueOrDueSoon(thresholdDate: Long): List<LoanEntity> = loanDao.getOverdueOrDueSoon(thresholdDate)
@@ -34,4 +36,21 @@ class LoanRepository(private val loanDao: LoanDao) {
     fun observeTotalLent(): Flow<Long> = loanDao.observeTotalLent()
 
     fun observeUnpaidCount(): Flow<Int> = loanDao.observeUnpaidCount()
+
+    // KPI
+    fun observeOverdueCount(todayStart: Long): Flow<Int> = loanDao.observeOverdueCount(todayStart)
+
+    fun observeDueTodayCount(todayStart: Long, tomorrowStart: Long): Flow<Int> =
+        loanDao.observeDueTodayCount(todayStart, tomorrowStart)
+
+    fun observeTotalOutstanding(): Flow<Long> = loanDao.observeTotalOutstanding()
+
+    // 搜索
+    fun searchLoans(
+        minAmount: Long? = null,
+        maxAmount: Long? = null,
+        statusFilter: Int? = null,
+        dueBefore: Long? = null,
+        dueAfter: Long? = null
+    ): Flow<List<LoanEntity>> = loanDao.searchLoans(minAmount, maxAmount, statusFilter, dueBefore, dueAfter)
 }

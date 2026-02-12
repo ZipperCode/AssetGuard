@@ -48,6 +48,13 @@ object LoanStatus {
     const val UNPAID = 0
     const val PARTIAL = 1
     const val PAID = 2
+    const val OVERDUE = 3
+    const val DISPUTED = 4
+    const val BAD_DEBT = 5
+    const val ARCHIVED = 6
+
+    /** 终态状态集合，不参与待回款统计 */
+    val EXCLUDED_FROM_ACTIVE = setOf(PAID, ARCHIVED)
 
     fun fromRepaid(repaidAmount: Long, totalAmount: Long): Int = when {
         repaidAmount >= totalAmount -> PAID
@@ -59,6 +66,10 @@ object LoanStatus {
         UNPAID -> "未还"
         PARTIAL -> "部分归还"
         PAID -> "已还清"
+        OVERDUE -> "逾期"
+        DISPUTED -> "争议中"
+        BAD_DEBT -> "坏账"
+        ARCHIVED -> "已归档"
         else -> "未知"
     }
 }

@@ -36,12 +36,15 @@ interface LoanDao {
     @Query("SELECT * FROM loans WHERE personId = :personId ORDER BY loanDate DESC")
     fun observeLoansByPerson(personId: Long): Flow<List<LoanEntity>>
 
+    @Query("SELECT * FROM loans WHERE personId = :personId ORDER BY loanDate DESC")
+    suspend fun getByPersonId(personId: Long): List<LoanEntity>
+
     @Query("UPDATE loans SET status = :status, updatedAt = :updatedAt WHERE id = :loanId")
     suspend fun updateStatus(loanId: Long, status: Int, updatedAt: Long = System.currentTimeMillis())
 
     @Query("""
         SELECT * FROM loans
-        WHERE dueDate IS NOT NULL AND status != 2
+        WHERE dueDate IS NOT NULL AND status NOT IN (2, 6)
         AND dueDate <= :thresholdDate
         ORDER BY dueDate ASC
     """)
@@ -49,7 +52,7 @@ interface LoanDao {
 
     @Query("""
         SELECT * FROM loans
-        WHERE dueDate IS NOT NULL AND status != 2
+        WHERE dueDate IS NOT NULL AND status NOT IN (2, 6)
         AND dueDate <= :thresholdDate
         ORDER BY dueDate ASC
     """)
@@ -61,6 +64,48 @@ interface LoanDao {
     @Query("SELECT COALESCE(SUM(amount), 0) FROM loans")
     fun observeTotalLent(): Flow<Long>
 
-    @Query("SELECT COUNT(*) FROM loans WHERE status != 2")
+    @Query("SELECT COUNT(*) FROM loans WHERE status NOT IN (2, 6)")
     fun observeUnpaidCount(): Flow<Int>
+
+    // KPI 查询
+    @Query("""
+        SELECT COUNT(*) FROM loans
+        WHERE dueDate IS NOT NULL AND status NOT IN (2, 6)
+        AND dueDate < :todayStart
+    """)
+    fun observeOverdueCount(todayStart: Long): Flow<Int>
+
+    @Query("""
+        SELECT COUNT(*) FROM loans
+        WHERE dueDate IS NOT NULL AND status NOT IN (2, 6)
+        AND dueDate >= :todayStart AND dueDate < :tomorrowStart
+    """)
+    fun observeDueTodayCount(todayStart: Long, tomorrowStart: Long): Flow<Int>
+
+    @Query("""
+        SELECT COALESCE(SUM(l.amount), 0) - COALESCE(
+            (SELECT SUM(r.amount) FROM repayments r WHERE r.loanId IN (SELECT id FROM loans WHERE status NOT IN (2, 6))),
+            0
+        ) FROM loans l WHERE l.status NOT IN (2, 6)
+    """)
+    fun observeTotalOutstanding(): Flow<Long>
+
+    // 搜索筛选查询
+    @Query("""
+        SELECT * FROM loans
+        WHERE status NOT IN (2, 6)
+        AND (:minAmount IS NULL OR amount >= :minAmount)
+        AND (:maxAmount IS NULL OR amount <= :maxAmount)
+        AND (:statusFilter IS NULL OR status = :statusFilter)
+        AND (:dueBefore IS NULL OR (dueDate IS NOT NULL AND dueDate <= :dueBefore))
+        AND (:dueAfter IS NULL OR (dueDate IS NOT NULL AND dueDate >= :dueAfter))
+        ORDER BY createdAt DESC
+    """)
+    fun searchLoans(
+        minAmount: Long? = null,
+        maxAmount: Long? = null,
+        statusFilter: Int? = null,
+        dueBefore: Long? = null,
+        dueAfter: Long? = null
+    ): Flow<List<LoanEntity>>
 }

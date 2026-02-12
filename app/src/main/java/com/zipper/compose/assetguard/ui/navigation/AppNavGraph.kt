@@ -14,6 +14,7 @@ import com.zipper.compose.assetguard.ui.loan.LoanFormScreen
 import com.zipper.compose.assetguard.ui.person.PersonDetailScreen
 import com.zipper.compose.assetguard.ui.person.PersonFormScreen
 import com.zipper.compose.assetguard.ui.repayment.RepaymentFormScreen
+import com.zipper.compose.assetguard.ui.search.SearchScreen
 import com.zipper.compose.assetguard.ui.settings.PaymentMethodManageScreen
 import com.zipper.compose.assetguard.ui.settings.SettingsScreen
 
@@ -39,6 +40,9 @@ fun AppNavGraph(
                 },
                 onSettingsClick = {
                     navController.navigate(Screen.Settings.route)
+                },
+                onSearchClick = {
+                    navController.navigate(Screen.Search.route)
                 }
             )
         }
@@ -142,6 +146,19 @@ fun AppNavGraph(
             PaymentMethodManageScreen(
                 container = container,
                 onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Screen.Search.route) {
+            SearchScreen(
+                container = container,
+                onBack = { navController.popBackStack() },
+                onPersonClick = { personId ->
+                    navController.navigate(Screen.PersonDetail.createRoute(personId))
+                },
+                onLoanClick = { loanId ->
+                    navController.navigate(Screen.LoanDetail.createRoute(loanId))
+                }
             )
         }
     }

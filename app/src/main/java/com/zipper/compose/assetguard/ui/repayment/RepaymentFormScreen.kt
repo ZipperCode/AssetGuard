@@ -1,7 +1,6 @@
 package com.zipper.compose.assetguard.ui.repayment
 
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,6 +12,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenuItem
@@ -21,6 +22,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -41,6 +43,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.zipper.compose.assetguard.di.AppContainer
 import com.zipper.compose.assetguard.util.DateUtils
+import com.zipper.compose.assetguard.util.MoneyUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -87,12 +90,46 @@ fun RepaymentFormScreen(
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
+            // 借条余额参考
+            if (uiState.loanAmount > 0) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = "借条金额: ${MoneyUtils.formatCents(uiState.loanAmount)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "剩余待还: ${MoneyUtils.formatCents(uiState.remainingAmount)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (uiState.remainingAmount > 0) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+            }
+
             OutlinedTextField(
                 value = uiState.amountText,
                 onValueChange = viewModel::onAmountChanged,
                 label = { Text("还款金额（元）*") },
                 isError = uiState.amountError != null,
-                supportingText = uiState.amountError?.let { { Text(it) } },
+                supportingText = when {
+                    uiState.amountError != null -> {{ Text(uiState.amountError!!) }}
+                    uiState.overpayWarning != null -> {{
+                        Text(
+                            text = uiState.overpayWarning!!,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }}
+                    else -> null
+                },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
@@ -108,6 +145,8 @@ fun RepaymentFormScreen(
                 label = { Text("还款日期") },
                 modifier = Modifier.fillMaxWidth(),
                 readOnly = true,
+                isError = uiState.dateError != null,
+                supportingText = uiState.dateError?.let { { Text(it) } },
                 interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }.also {
                     LaunchedEffect(it) {
                         it.interactions.collect { interaction ->
@@ -135,6 +174,8 @@ fun RepaymentFormScreen(
                         .fillMaxWidth()
                         .menuAnchor(MenuAnchorType.PrimaryNotEditable),
                     readOnly = true,
+                    isError = uiState.paymentMethodError != null,
+                    supportingText = uiState.paymentMethodError?.let { { Text(it) } },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = paymentMethodExpanded) }
                 )
                 ExposedDropdownMenu(

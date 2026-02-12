@@ -25,6 +25,15 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <receiver
+            android:name=".notification.NotificationActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.zipper.compose.assetguard.ACTION_SNOOZE" />
+                <action android:name="com.zipper.compose.assetguard.ACTION_CONTACTED" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>

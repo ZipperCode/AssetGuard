@@ -35,6 +35,8 @@ class RepaymentRepository(
 
     fun observeTotalRepaid(): Flow<Long> = repaymentDao.observeTotalRepaid()
 
+    suspend fun getTotalRepaidForLoan(loanId: Long): Long = repaymentDao.getTotalRepaidForLoan(loanId)
+
     private suspend fun recalculateLoanStatus(loanId: Long) {
         val loan = loanDao.getById(loanId) ?: return
         val totalRepaid = repaymentDao.getTotalRepaidForLoan(loanId)

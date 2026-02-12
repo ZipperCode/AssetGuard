@@ -24,10 +24,14 @@ data class RepaymentFormUiState(
     val note: String = "",
     val remainingAmount: Long = 0L,
     val loanAmount: Long = 0L,
+    val loanDate: Long = 0L,
     val isEditing: Boolean = false,
     val isSaving: Boolean = false,
     val isSaved: Boolean = false,
-    val amountError: String? = null
+    val amountError: String? = null,
+    val dateError: String? = null,
+    val paymentMethodError: String? = null,
+    val overpayWarning: String? = null
 )
 
 class RepaymentFormViewModel(
@@ -47,12 +51,14 @@ class RepaymentFormViewModel(
 
     init {
         viewModelScope.launch {
-            // 加载借条信息获取剩余金额
-            val loanWithRepayments = loanRepository.getById(loanId)
-            if (loanWithRepayments != null) {
-                val repayments = repaymentRepository.observeByLoan(loanId)
-                // 使用简单方式获取已还金额
-                _uiState.value = _uiState.value.copy(loanAmount = loanWithRepayments.amount)
+            val loan = loanRepository.getById(loanId)
+            if (loan != null) {
+                val totalRepaid = repaymentRepository.getTotalRepaidForLoan(loanId)
+                _uiState.value = _uiState.value.copy(
+                    loanAmount = loan.amount,
+                    loanDate = loan.loanDate,
+                    remainingAmount = loan.amount - totalRepaid
+                )
             }
 
             if (repaymentId != null) {
@@ -70,16 +76,27 @@ class RepaymentFormViewModel(
 
     fun onAmountChanged(text: String) {
         if (MoneyUtils.isValidAmountInput(text)) {
-            _uiState.value = _uiState.value.copy(amountText = text, amountError = null)
+            val amountCents = MoneyUtils.yuanStringToCents(text)
+            val overpayWarning = if (amountCents > _uiState.value.remainingAmount && _uiState.value.remainingAmount > 0) {
+                "还款金额超过剩余待还 ${MoneyUtils.formatCents(_uiState.value.remainingAmount)}"
+            } else null
+            _uiState.value = _uiState.value.copy(
+                amountText = text,
+                amountError = null,
+                overpayWarning = overpayWarning
+            )
         }
     }
 
     fun onRepayDateChanged(date: Long) {
-        _uiState.value = _uiState.value.copy(repayDate = date)
+        val dateError = if (date < _uiState.value.loanDate && _uiState.value.loanDate > 0) {
+            "还款日期不能早于借款日"
+        } else null
+        _uiState.value = _uiState.value.copy(repayDate = date, dateError = dateError)
     }
 
     fun onPaymentMethodChanged(id: Long) {
-        _uiState.value = _uiState.value.copy(paymentMethodId = id)
+        _uiState.value = _uiState.value.copy(paymentMethodId = id, paymentMethodError = null)
     }
 
     fun onNoteChanged(note: String) {
@@ -95,7 +112,11 @@ class RepaymentFormViewModel(
         }
         val paymentMethodId = state.paymentMethodId
         if (paymentMethodId == null) {
-            _uiState.value = state.copy(amountError = "请选择支付方式")
+            _uiState.value = state.copy(paymentMethodError = "请选择支付方式")
+            return
+        }
+        if (state.loanDate > 0 && state.repayDate < state.loanDate) {
+            _uiState.value = state.copy(dateError = "还款日期不能早于借款日")
             return
         }
 
@@ -125,6 +146,9 @@ class RepaymentFormViewModel(
             _uiState.value = _uiState.value.copy(isSaving = false, isSaved = true)
         }
     }
+
+    suspend fun getTotalRepaidForLoan(loanId: Long): Long =
+        repaymentRepository.getTotalRepaidForLoan(loanId)
 
     companion object {
         fun factory(container: AppContainer, loanId: Long, repaymentId: Long?) =

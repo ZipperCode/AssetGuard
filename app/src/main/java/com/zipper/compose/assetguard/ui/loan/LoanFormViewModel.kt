@@ -25,7 +25,9 @@ data class LoanFormUiState(
     val isEditing: Boolean = false,
     val isSaving: Boolean = false,
     val isSaved: Boolean = false,
-    val amountError: String? = null
+    val amountError: String? = null,
+    val dateError: String? = null,
+    val paymentMethodError: String? = null
 )
 
 class LoanFormViewModel(
@@ -65,19 +67,29 @@ class LoanFormViewModel(
     }
 
     fun onLoanDateChanged(date: Long) {
-        _uiState.value = _uiState.value.copy(loanDate = date)
+        _uiState.value = _uiState.value.copy(loanDate = date, dateError = null)
+        validateDueDate()
     }
 
     fun onDueDateChanged(date: Long?) {
-        _uiState.value = _uiState.value.copy(dueDate = date)
+        _uiState.value = _uiState.value.copy(dueDate = date, dateError = null)
+        validateDueDate()
     }
 
     fun onPaymentMethodChanged(id: Long) {
-        _uiState.value = _uiState.value.copy(paymentMethodId = id)
+        _uiState.value = _uiState.value.copy(paymentMethodId = id, paymentMethodError = null)
     }
 
     fun onNoteChanged(note: String) {
         _uiState.value = _uiState.value.copy(note = note)
+    }
+
+    private fun validateDueDate() {
+        val state = _uiState.value
+        val dueDate = state.dueDate ?: return
+        if (dueDate < state.loanDate) {
+            _uiState.value = state.copy(dateError = "到期日不能早于借款日")
+        }
     }
 
     fun save() {
@@ -89,7 +101,11 @@ class LoanFormViewModel(
         }
         val paymentMethodId = state.paymentMethodId
         if (paymentMethodId == null) {
-            _uiState.value = state.copy(amountError = "请选择支付方式")
+            _uiState.value = state.copy(paymentMethodError = "请选择支付方式")
+            return
+        }
+        if (state.dueDate != null && state.dueDate < state.loanDate) {
+            _uiState.value = state.copy(dateError = "到期日不能早于借款日")
             return
         }
 
