@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.zipper.compose.assetguard.ui.theme.extendedColorScheme
 import com.zipper.compose.assetguard.util.DateUtils
 
 @Composable
@@ -26,7 +27,7 @@ fun DueDateIndicator(
     val color = when {
         days < 0 -> MaterialTheme.colorScheme.error
         days <= 3 -> MaterialTheme.colorScheme.error
-        days <= 7 -> MaterialTheme.colorScheme.tertiary
+        days <= 7 -> MaterialTheme.extendedColorScheme.warning
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
