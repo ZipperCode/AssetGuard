@@ -13,6 +13,7 @@ import com.zipper.compose.assetguard.ui.loan.LoanDetailScreen
 import com.zipper.compose.assetguard.ui.loan.LoanFormScreen
 import com.zipper.compose.assetguard.ui.person.PersonDetailScreen
 import com.zipper.compose.assetguard.ui.person.PersonFormScreen
+import com.zipper.compose.assetguard.ui.profile.ProfileScreen
 import com.zipper.compose.assetguard.ui.repayment.RepaymentFormScreen
 import com.zipper.compose.assetguard.ui.search.SearchScreen
 import com.zipper.compose.assetguard.ui.settings.PaymentMethodManageScreen
@@ -29,6 +30,7 @@ fun AppNavGraph(
         startDestination = Screen.Home.route,
         modifier = modifier
     ) {
+        // === Tab 页面 ===
         composable(Screen.Home.route) {
             HomeScreen(
                 container = container,
@@ -38,15 +40,40 @@ fun AppNavGraph(
                 onAddPerson = {
                     navController.navigate(Screen.PersonForm.createRoute())
                 },
-                onSettingsClick = {
-                    navController.navigate(Screen.Settings.route)
+                onAddLoan = {
+                    navController.navigate(Screen.LoanForm.createRoute())
                 },
-                onSearchClick = {
-                    navController.navigate(Screen.Search.route)
+            )
+        }
+
+        composable(Screen.Search.route) {
+            SearchScreen(
+                container = container,
+                onPersonClick = { personId ->
+                    navController.navigate(Screen.PersonDetail.createRoute(personId))
+                },
+                onLoanClick = { loanId ->
+                    navController.navigate(Screen.LoanDetail.createRoute(loanId))
                 }
             )
         }
 
+        composable(Screen.Settings.route) {
+            SettingsScreen(
+                container = container,
+                onPaymentMethodManage = {
+                    navController.navigate(Screen.PaymentMethodManage.route)
+                }
+            )
+        }
+
+        composable(Screen.Profile.route) {
+            ProfileScreen(
+                container = container,
+            )
+        }
+
+        // === 详情/表单页面 ===
         composable(
             route = Screen.PersonDetail.route,
             arguments = listOf(navArgument("personId") { type = NavType.LongType })
@@ -57,13 +84,13 @@ fun AppNavGraph(
                 container = container,
                 onBack = { navController.popBackStack() },
                 onEditPerson = { navController.navigate(Screen.PersonForm.createRoute(personId)) },
-                onAddLoan = { navController.navigate(Screen.LoanForm.createRoute(personId)) },
+                onAddLoan = { navController.navigate(Screen.LoanForm.createRoute(personId = personId)) },
                 onLoanClick = { loanId -> navController.navigate(Screen.LoanDetail.createRoute(loanId)) }
             )
         }
 
         composable(
-            route = "person_form?personId={personId}",
+            route = Screen.PersonForm.route,
             arguments = listOf(navArgument("personId") {
                 type = NavType.LongType
                 defaultValue = -1L
@@ -87,7 +114,7 @@ fun AppNavGraph(
                 container = container,
                 onBack = { navController.popBackStack() },
                 onEditLoan = { personId ->
-                    navController.navigate(Screen.LoanForm.createRoute(personId, loanId))
+                    navController.navigate(Screen.LoanForm.createRoute(personId = personId, loanId = loanId))
                 },
                 onAddRepayment = {
                     navController.navigate(Screen.RepaymentForm.createRoute(loanId))
@@ -99,13 +126,13 @@ fun AppNavGraph(
         }
 
         composable(
-            route = "loan_form/{personId}?loanId={loanId}",
+            route = Screen.LoanForm.route,
             arguments = listOf(
-                navArgument("personId") { type = NavType.LongType },
+                navArgument("personId") { type = NavType.LongType; defaultValue = -1L },
                 navArgument("loanId") { type = NavType.LongType; defaultValue = -1L }
             )
         ) { backStackEntry ->
-            val personId = backStackEntry.arguments?.getLong("personId") ?: return@composable
+            val personId = backStackEntry.arguments?.getLong("personId")?.takeIf { it != -1L }
             val loanId = backStackEntry.arguments?.getLong("loanId")?.takeIf { it != -1L }
             LoanFormScreen(
                 personId = personId,
@@ -116,7 +143,7 @@ fun AppNavGraph(
         }
 
         composable(
-            route = "repayment_form/{loanId}?repaymentId={repaymentId}",
+            route = Screen.RepaymentForm.route,
             arguments = listOf(
                 navArgument("loanId") { type = NavType.LongType },
                 navArgument("repaymentId") { type = NavType.LongType; defaultValue = -1L }
@@ -132,33 +159,10 @@ fun AppNavGraph(
             )
         }
 
-        composable(Screen.Settings.route) {
-            SettingsScreen(
-                container = container,
-                onBack = { navController.popBackStack() },
-                onPaymentMethodManage = {
-                    navController.navigate(Screen.PaymentMethodManage.route)
-                }
-            )
-        }
-
         composable(Screen.PaymentMethodManage.route) {
             PaymentMethodManageScreen(
                 container = container,
                 onBack = { navController.popBackStack() }
-            )
-        }
-
-        composable(Screen.Search.route) {
-            SearchScreen(
-                container = container,
-                onBack = { navController.popBackStack() },
-                onPersonClick = { personId ->
-                    navController.navigate(Screen.PersonDetail.createRoute(personId))
-                },
-                onLoanClick = { loanId ->
-                    navController.navigate(Screen.LoanDetail.createRoute(loanId))
-                }
             )
         }
     }

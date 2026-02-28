@@ -16,6 +16,8 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
+import com.zipper.compose.assetguard.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,27 +30,27 @@ fun BatchActionBar(
 ) {
     TopAppBar(
         title = {
-            Text("已选择 $selectedCount 项")
+            Text(stringResource(R.string.batch_selected_count, selectedCount))
         },
         navigationIcon = {
             IconButton(onClick = onClose) {
-                Icon(Icons.Default.Close, contentDescription = "取消选择")
+                Icon(Icons.Default.Close, contentDescription = stringResource(R.string.batch_cancel_selection))
             }
         },
         actions = {
             if (onRemind != null) {
                 IconButton(onClick = onRemind) {
-                    Icon(Icons.Default.Notifications, contentDescription = "发送提醒")
+                    Icon(Icons.Default.Notifications, contentDescription = stringResource(R.string.batch_send_remind))
                 }
             }
             if (onExport != null) {
                 IconButton(onClick = onExport) {
-                    Icon(Icons.Default.IosShare, contentDescription = "导出")
+                    Icon(Icons.Default.IosShare, contentDescription = stringResource(R.string.batch_export))
                 }
             }
             if (onArchive != null) {
                 IconButton(onClick = onArchive) {
-                    Icon(Icons.Default.Archive, contentDescription = "归档")
+                    Icon(Icons.Default.Archive, contentDescription = stringResource(R.string.batch_archive))
                 }
             }
         },

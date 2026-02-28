@@ -35,6 +35,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -43,19 +44,26 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.zipper.compose.assetguard.R
 import com.zipper.compose.assetguard.data.local.entity.LoanEntity
 import com.zipper.compose.assetguard.data.local.entity.LoanWithRepayments
 import com.zipper.compose.assetguard.di.AppContainer
+import com.zipper.compose.assetguard.ui.components.AvatarView
 import com.zipper.compose.assetguard.ui.components.BatchActionBar
 import com.zipper.compose.assetguard.ui.components.ConfirmDialog
 import com.zipper.compose.assetguard.ui.components.DueDateIndicator
 import com.zipper.compose.assetguard.ui.components.EmptyStateView
 import com.zipper.compose.assetguard.ui.components.MoneyText
 import com.zipper.compose.assetguard.ui.components.StatusChip
+import com.zipper.compose.assetguard.ui.theme.StatusPaid
+import com.zipper.compose.assetguard.ui.theme.StatusPartial
+import com.zipper.compose.assetguard.ui.theme.StatusUnpaid
+import com.zipper.compose.assetguard.ui.theme.spacing
 import com.zipper.compose.assetguard.util.DateUtils
 import com.zipper.compose.assetguard.util.MoneyUtils
 
@@ -73,6 +81,7 @@ fun PersonDetailScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val batchMessage by viewModel.batchMessage.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
     var loanToDelete by remember { mutableStateOf<LoanEntity?>(null) }
     var showArchiveConfirm by remember { mutableStateOf(false) }
 
@@ -87,8 +96,8 @@ fun PersonDetailScreen(
     LaunchedEffect(uiState.pendingDeleteLoanName) {
         uiState.pendingDeleteLoanName?.let {
             val result = snackbarHostState.showSnackbar(
-                message = "借条将被删除（含还款记录）",
-                actionLabel = "撤销",
+                message = context.getString(R.string.person_detail_loan_will_delete),
+                actionLabel = context.getString(R.string.action_undo),
                 duration = SnackbarDuration.Short
             )
             if (result == SnackbarResult.ActionPerformed) {
@@ -115,24 +124,28 @@ fun PersonDetailScreen(
                 )
             } else {
                 TopAppBar(
-                    title = { Text(uiState.person?.name ?: "联系人详情") },
+                    title = { Text(uiState.person?.name ?: stringResource(R.string.person_detail_title)) },
                     navigationIcon = {
                         IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                         }
                     },
                     actions = {
                         IconButton(onClick = onEditPerson) {
-                            Icon(Icons.Default.Edit, contentDescription = "编辑")
+                            Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.action_edit))
                         }
-                    }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background,
+                        titleContentColor = MaterialTheme.colorScheme.onBackground,
+                    )
                 )
             }
         },
         floatingActionButton = {
             if (!uiState.isLoanSelectionMode) {
                 FloatingActionButton(onClick = onAddLoan) {
-                    Icon(Icons.Default.Add, contentDescription = "添加借条")
+                    Icon(Icons.Default.Add, contentDescription = stringResource(R.string.person_detail_add_loan))
                 }
             }
         },
@@ -142,8 +155,8 @@ fun PersonDetailScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            contentPadding = PaddingValues(MaterialTheme.spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.md)
         ) {
             // 人员信息卡片
             uiState.person?.let { person ->
@@ -151,7 +164,13 @@ fun PersonDetailScreen(
                     PersonInfoCard(
                         name = person.name,
                         phone = person.phone,
-                        note = person.note,
+                        note = person.note
+                    )
+                }
+
+                // 财务统计卡片
+                item {
+                    FinancialStatsRow(
                         totalLent = uiState.totalLent,
                         totalRepaid = uiState.totalRepaid,
                         totalOutstanding = uiState.totalOutstanding
@@ -162,14 +181,14 @@ fun PersonDetailScreen(
             // 借条列表
             if (uiState.loans.isEmpty()) {
                 item {
-                    EmptyStateView(message = "暂无借条记录，点击右下角添加")
+                    EmptyStateView(message = stringResource(R.string.person_detail_empty_no_loan))
                 }
             } else {
                 item {
                     Text(
-                        text = "借条记录 (${uiState.loans.size})",
+                        text = stringResource(R.string.person_detail_loan_records, uiState.loans.size),
                         style = MaterialTheme.typography.titleSmall,
-                        modifier = Modifier.padding(vertical = 4.dp)
+                        modifier = Modifier.padding(vertical = MaterialTheme.spacing.xs)
                     )
                 }
                 items(uiState.loans, key = { it.loan.id }) { loanWithRepayments ->
@@ -203,9 +222,9 @@ fun PersonDetailScreen(
     loanToDelete?.let { loan ->
         val repaymentCount = uiState.loans.find { it.loan.id == loan.id }?.repayments?.size ?: 0
         ConfirmDialog(
-            title = "删除借条",
-            message = "确定要删除这笔 ${MoneyUtils.formatCents(loan.amount)} 的借条吗？",
-            impactDescription = if (repaymentCount > 0) "将同时删除 $repaymentCount 条还款记录" else null,
+            title = stringResource(R.string.person_detail_delete_loan_title),
+            message = stringResource(R.string.person_detail_delete_loan_msg, MoneyUtils.formatCents(loan.amount)),
+            impactDescription = if (repaymentCount > 0) stringResource(R.string.person_detail_delete_loan_impact, repaymentCount) else null,
             onConfirm = {
                 viewModel.deleteLoan(loan)
                 loanToDelete = null
@@ -216,8 +235,8 @@ fun PersonDetailScreen(
 
     if (showArchiveConfirm) {
         ConfirmDialog(
-            title = "批量归档",
-            message = "确定要归档选中的 ${uiState.selectedLoanIds.size} 条借条吗？\n归档后借条将不再参与统计。",
+            title = stringResource(R.string.person_detail_batch_archive_title),
+            message = stringResource(R.string.person_detail_batch_archive_msg, uiState.selectedLoanIds.size),
             onConfirm = {
                 viewModel.batchArchiveLoans()
                 showArchiveConfirm = false
@@ -231,61 +250,111 @@ fun PersonDetailScreen(
 private fun PersonInfoCard(
     name: String,
     phone: String?,
-    note: String?,
-    totalLent: Long,
-    totalRepaid: Long,
-    totalOutstanding: Long
+    note: String?
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.secondaryContainer
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
         )
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = name,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSecondaryContainer
+        Row(
+            modifier = Modifier.padding(MaterialTheme.spacing.lg),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AvatarView(
+                name = name,
+                size = androidx.compose.ui.unit.Dp(48f)
             )
-            if (!phone.isNullOrBlank()) {
+            Spacer(Modifier.width(MaterialTheme.spacing.md))
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = phone,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
+                    text = name,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            }
-            if (!note.isNullOrBlank()) {
-                Text(
-                    text = note,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f)
-                )
-            }
-            Spacer(Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("总借出", style = MaterialTheme.typography.labelSmall)
-                    MoneyText(cents = totalLent, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("已还", style = MaterialTheme.typography.labelSmall)
-                    MoneyText(cents = totalRepaid, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("待还", style = MaterialTheme.typography.labelSmall)
-                    MoneyText(
-                        cents = totalOutstanding,
+                if (!phone.isNullOrBlank()) {
+                    Text(
+                        text = phone,
                         style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = if (totalOutstanding > 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (!note.isNullOrBlank()) {
+                    Text(
+                        text = note,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun FinancialStatsRow(
+    totalLent: Long,
+    totalRepaid: Long,
+    totalOutstanding: Long
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.sm)
+    ) {
+        StatCard(
+            label = stringResource(R.string.person_detail_total_lent),
+            cents = totalLent,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.weight(1f)
+        )
+        StatCard(
+            label = stringResource(R.string.person_detail_repaid),
+            cents = totalRepaid,
+            color = StatusPaid,
+            modifier = Modifier.weight(1f)
+        )
+        StatCard(
+            label = stringResource(R.string.person_detail_outstanding),
+            cents = totalOutstanding,
+            color = if (totalOutstanding > 0) StatusUnpaid else StatusPaid,
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun StatCard(
+    label: String,
+    cents: Long,
+    color: androidx.compose.ui.graphics.Color,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(MaterialTheme.spacing.md),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(MaterialTheme.spacing.xs))
+            MoneyText(
+                cents = cents,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                color = color
+            )
         }
     }
 }
@@ -305,6 +374,12 @@ private fun LoanCard(
         (loanWithRepayments.totalRepaid.toFloat() / loan.amount).coerceIn(0f, 1f)
     } else 0f
 
+    val progressColor = when {
+        progress >= 1f -> StatusPaid
+        progress > 0f -> StatusPartial
+        else -> StatusUnpaid
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -316,7 +391,7 @@ private fun LoanCard(
             containerColor = MaterialTheme.colorScheme.secondaryContainer
         ) else CardDefaults.cardColors()
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(MaterialTheme.spacing.lg)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -327,7 +402,7 @@ private fun LoanCard(
                         checked = isSelected,
                         onCheckedChange = { onClick() }
                     )
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(MaterialTheme.spacing.sm))
                 }
                 MoneyText(
                     cents = loan.amount,
@@ -338,46 +413,48 @@ private fun LoanCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     StatusChip(status = loan.status)
                     if (!isSelectionMode) {
-                        Spacer(Modifier.width(4.dp))
+                        Spacer(Modifier.width(MaterialTheme.spacing.xs))
                         IconButton(onClick = onDelete) {
-                            Icon(Icons.Default.Delete, contentDescription = "删除", modifier = Modifier)
+                            Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.action_delete), modifier = Modifier)
                         }
                     }
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(MaterialTheme.spacing.sm))
 
             // 还款进度
             LinearProgressIndicator(
                 progress = { progress },
                 modifier = Modifier.fillMaxWidth(),
+                color = progressColor,
+                trackColor = progressColor.copy(alpha = 0.15f),
             )
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(MaterialTheme.spacing.xs))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "已还 ${MoneyUtils.formatCents(loanWithRepayments.totalRepaid)}",
+                    text = stringResource(R.string.person_detail_repaid_amount, MoneyUtils.formatCents(loanWithRepayments.totalRepaid)),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Text(
-                    text = "剩余 ${MoneyUtils.formatCents(loanWithRepayments.remaining)}",
+                    text = stringResource(R.string.person_detail_remaining_amount, MoneyUtils.formatCents(loanWithRepayments.remaining)),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(MaterialTheme.spacing.sm))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "借款日: ${DateUtils.formatDate(loan.loanDate)}",
+                    text = stringResource(R.string.person_detail_loan_date, DateUtils.formatDate(loan.loanDate)),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

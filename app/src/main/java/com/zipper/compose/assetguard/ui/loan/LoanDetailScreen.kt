@@ -21,6 +21,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -32,6 +33,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -40,18 +42,25 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.zipper.compose.assetguard.R
 import com.zipper.compose.assetguard.data.local.entity.RepaymentEntity
 import com.zipper.compose.assetguard.di.AppContainer
 import com.zipper.compose.assetguard.ui.components.ConfirmDialog
 import com.zipper.compose.assetguard.ui.components.DueDateIndicator
 import com.zipper.compose.assetguard.ui.components.EmptyStateView
+import com.zipper.compose.assetguard.ui.components.GradientCard
 import com.zipper.compose.assetguard.ui.components.MoneyText
 import com.zipper.compose.assetguard.ui.components.PaymentMethodChip
 import com.zipper.compose.assetguard.ui.components.StatusChip
+import com.zipper.compose.assetguard.ui.theme.StatusPaid
+import com.zipper.compose.assetguard.ui.theme.StatusPartial
+import com.zipper.compose.assetguard.ui.theme.StatusUnpaid
+import com.zipper.compose.assetguard.ui.theme.spacing
 import com.zipper.compose.assetguard.util.DateUtils
 import com.zipper.compose.assetguard.util.MoneyUtils
 
@@ -68,7 +77,9 @@ fun LoanDetailScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var repaymentToDelete by remember { mutableStateOf<RepaymentEntity?>(null) }
+    var showDeleteLoanConfirm by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
 
     val loanWithRepayments = uiState.loanWithRepayments
 
@@ -76,8 +87,8 @@ fun LoanDetailScreen(
     LaunchedEffect(uiState.pendingDeleteRepaymentId) {
         uiState.pendingDeleteRepaymentId?.let {
             val result = snackbarHostState.showSnackbar(
-                message = "还款记录将被删除",
-                actionLabel = "撤销",
+                message = context.getString(R.string.loan_detail_repayment_will_delete),
+                actionLabel = context.getString(R.string.action_undo),
                 duration = SnackbarDuration.Short
             )
             if (result == SnackbarResult.ActionPerformed) {
@@ -89,25 +100,36 @@ fun LoanDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("借条详情") },
+                title = { Text(stringResource(R.string.loan_detail_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
                 },
                 actions = {
                     if (loanWithRepayments != null) {
                         IconButton(onClick = { onEditLoan(loanWithRepayments.loan.personId) }) {
-                            Icon(Icons.Default.Edit, contentDescription = "编辑借条")
+                            Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.loan_detail_edit_loan))
+                        }
+                        IconButton(onClick = { showDeleteLoanConfirm = true }) {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = stringResource(R.string.action_delete),
+                                tint = StatusUnpaid
+                            )
                         }
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                )
             )
         },
         floatingActionButton = {
             if (loanWithRepayments != null && loanWithRepayments.remaining > 0) {
                 FloatingActionButton(onClick = onAddRepayment) {
-                    Icon(Icons.Default.Add, contentDescription = "添加还款")
+                    Icon(Icons.Default.Add, contentDescription = stringResource(R.string.loan_detail_add_repayment))
                 }
             }
         },
@@ -115,7 +137,7 @@ fun LoanDetailScreen(
     ) { paddingValues ->
         if (loanWithRepayments == null) {
             EmptyStateView(
-                message = "借条不存在",
+                message = stringResource(R.string.loan_detail_empty),
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
@@ -128,22 +150,23 @@ fun LoanDetailScreen(
             (loanWithRepayments.totalRepaid.toFloat() / loan.amount).coerceIn(0f, 1f)
         } else 0f
 
+        val progressColor = when {
+            progress >= 1f -> StatusPaid
+            progress > 0f -> StatusPartial
+            else -> StatusUnpaid
+        }
+
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            contentPadding = PaddingValues(MaterialTheme.spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.md)
         ) {
-            // 借条信息卡片
+            // 金额渐变卡片
             item {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer
-                    )
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
+                GradientCard {
+                    Column(modifier = Modifier.fillMaxWidth()) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -153,65 +176,115 @@ fun LoanDetailScreen(
                                 cents = loan.amount,
                                 style = MaterialTheme.typography.headlineMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                                color = MaterialTheme.colorScheme.onPrimary
                             )
                             StatusChip(status = loan.status)
                         }
 
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(MaterialTheme.spacing.md))
 
                         // 进度条
                         LinearProgressIndicator(
                             progress = { progress },
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            color = progressColor,
+                            trackColor = progressColor.copy(alpha = 0.2f),
                         )
-                        Spacer(Modifier.height(4.dp))
+                        Spacer(Modifier.height(MaterialTheme.spacing.xs))
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                "已还 ${MoneyUtils.formatCents(loanWithRepayments.totalRepaid)}",
-                                style = MaterialTheme.typography.labelSmall
+                                stringResource(R.string.loan_detail_repaid_amount, MoneyUtils.formatCents(loanWithRepayments.totalRepaid)),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
                             )
                             Text(
-                                "剩余 ${MoneyUtils.formatCents(loanWithRepayments.remaining)}",
-                                style = MaterialTheme.typography.labelSmall
+                                stringResource(R.string.loan_detail_remaining_amount, MoneyUtils.formatCents(loanWithRepayments.remaining)),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
                             )
                         }
+                    }
+                }
+            }
 
-                        Spacer(Modifier.height(12.dp))
+            // 借条详情信息卡片
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(MaterialTheme.spacing.lg)) {
+                        // 借款日期
+                        InfoRow(
+                            label = stringResource(R.string.loan_detail_loan_date),
+                            value = DateUtils.formatDate(loan.loanDate)
+                        )
 
-                        Row(modifier = Modifier.fillMaxWidth()) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text("借款日期", style = MaterialTheme.typography.labelSmall)
-                                Text(DateUtils.formatDate(loan.loanDate), style = MaterialTheme.typography.bodyMedium)
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                        // 到期日
+                        loan.dueDate?.let {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = MaterialTheme.spacing.md),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.loan_detail_due_date),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                DueDateIndicator(dueDate = it)
                             }
-                            loan.dueDate?.let {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text("到期日", style = MaterialTheme.typography.labelSmall)
-                                    DueDateIndicator(dueDate = it)
-                                }
-                            }
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         }
 
-                        Spacer(Modifier.height(8.dp))
-
+                        // 支付方式
                         val methodName = uiState.paymentMethods[loan.paymentMethodId]?.name
                         if (methodName != null) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("支付方式: ", style = MaterialTheme.typography.labelSmall)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = MaterialTheme.spacing.md),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.loan_detail_payment_method),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                                 PaymentMethodChip(name = methodName)
                             }
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         }
 
+                        // 备注
                         if (!loan.note.isNullOrBlank()) {
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                "备注: ${loan.note}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
-                            )
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = MaterialTheme.spacing.md)
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.label_note),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Spacer(Modifier.height(MaterialTheme.spacing.xs))
+                                Text(
+                                    text = loan.note,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }
@@ -220,14 +293,16 @@ fun LoanDetailScreen(
             // 还款记录标题
             item {
                 Text(
-                    text = "还款记录 (${loanWithRepayments.repayments.size})",
+                    text = stringResource(R.string.loan_detail_repayment_records, loanWithRepayments.repayments.size),
                     style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.padding(vertical = 4.dp)
+                    modifier = Modifier.padding(vertical = MaterialTheme.spacing.xs)
                 )
             }
 
             if (loanWithRepayments.repayments.isEmpty()) {
-                item { EmptyStateView(message = "暂无还款记录") }
+                item {
+                    EmptyStateView(message = stringResource(R.string.loan_detail_empty_repayment))
+                }
             } else {
                 items(loanWithRepayments.repayments, key = { it.id }) { repayment ->
                     RepaymentCard(
@@ -243,13 +318,53 @@ fun LoanDetailScreen(
 
     repaymentToDelete?.let { repayment ->
         ConfirmDialog(
-            title = "删除还款记录",
-            message = "确定要删除这笔 ${MoneyUtils.formatCents(repayment.amount)} 的还款记录吗？借条状态将自动重算。",
+            title = stringResource(R.string.loan_detail_delete_repayment_title),
+            message = stringResource(R.string.loan_detail_delete_repayment_msg, MoneyUtils.formatCents(repayment.amount)),
             onConfirm = {
                 viewModel.deleteRepayment(repayment)
                 repaymentToDelete = null
             },
             onDismiss = { repaymentToDelete = null }
+        )
+    }
+
+    if (showDeleteLoanConfirm && loanWithRepayments != null) {
+        val repaymentCount = loanWithRepayments.repayments.size
+        ConfirmDialog(
+            title = stringResource(R.string.person_detail_delete_loan_title),
+            message = stringResource(R.string.person_detail_delete_loan_msg, MoneyUtils.formatCents(loanWithRepayments.loan.amount)),
+            impactDescription = if (repaymentCount > 0) stringResource(R.string.person_detail_delete_loan_impact, repaymentCount) else null,
+            onConfirm = {
+                viewModel.deleteLoan()
+                showDeleteLoanConfirm = false
+                onBack()
+            },
+            onDismiss = { showDeleteLoanConfirm = false }
+        )
+    }
+}
+
+@Composable
+private fun InfoRow(
+    label: String,
+    value: String
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = MaterialTheme.spacing.md),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -264,7 +379,7 @@ private fun RepaymentCard(
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
-                .padding(12.dp)
+                .padding(MaterialTheme.spacing.md)
                 .fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
@@ -275,7 +390,7 @@ private fun RepaymentCard(
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Medium
                 )
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(MaterialTheme.spacing.xs))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = DateUtils.formatDate(repayment.repayDate),
@@ -283,7 +398,7 @@ private fun RepaymentCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     if (paymentMethodName != null) {
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(MaterialTheme.spacing.sm))
                         PaymentMethodChip(name = paymentMethodName)
                     }
                 }
@@ -291,16 +406,16 @@ private fun RepaymentCard(
                     Text(
                         text = repayment.note,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
             Row {
                 IconButton(onClick = onEdit) {
-                    Icon(Icons.Default.Edit, contentDescription = "编辑")
+                    Icon(Icons.Default.Edit, contentDescription = stringResource(R.string.action_edit))
                 }
                 IconButton(onClick = onDelete) {
-                    Icon(Icons.Default.Delete, contentDescription = "删除")
+                    Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.action_delete))
                 }
             }
         }

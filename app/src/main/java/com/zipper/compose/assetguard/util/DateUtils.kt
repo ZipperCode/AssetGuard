@@ -8,11 +8,13 @@ import java.util.concurrent.TimeUnit
 
 object DateUtils {
 
-    private val displayFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    private val displayFormat = ThreadLocal.withInitial {
+        SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    }
 
     /** 时间戳转显示字符串 yyyy-MM-dd */
     fun formatDate(timestamp: Long): String {
-        return displayFormat.format(Date(timestamp))
+        return displayFormat.get()!!.format(Date(timestamp))
     }
 
     /** 获取今天的开始时间戳（0点） */
@@ -48,6 +50,24 @@ object DateUtils {
         val cal = Calendar.getInstance()
         cal.add(Calendar.DAY_OF_YEAR, days)
         return cal.timeInMillis
+    }
+
+    /** 到期状态（结构化，供 UI 层用 stringResource 格式化） */
+    sealed class DueDateStatus {
+        data class Overdue(val days: Long) : DueDateStatus()
+        data object DueToday : DueDateStatus()
+        data class DueSoon(val days: Long) : DueDateStatus()
+        data class Normal(val formattedDate: String) : DueDateStatus()
+    }
+
+    fun dueDateStatus(dueDate: Long): DueDateStatus {
+        val days = daysUntilDue(dueDate)
+        return when {
+            days < 0 -> DueDateStatus.Overdue(-days)
+            days == 0L -> DueDateStatus.DueToday
+            days <= 7 -> DueDateStatus.DueSoon(days)
+            else -> DueDateStatus.Normal(formatDate(dueDate))
+        }
     }
 
     /** 到期状态描述 */

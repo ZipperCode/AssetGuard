@@ -16,7 +16,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.zipper.compose.assetguard.ui.theme.AssetGuardTheme
+import com.zipper.compose.assetguard.ui.theme.spacing
 
 @Composable
 fun EmptyStateView(
@@ -27,7 +30,7 @@ fun EmptyStateView(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(32.dp),
+            .padding(MaterialTheme.spacing.xl),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -37,11 +40,19 @@ fun EmptyStateView(
             modifier = Modifier.size(64.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
         )
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(MaterialTheme.spacing.md))
         Text(
             text = message,
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
         )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun EmptyStateViewPreview() {
+    AssetGuardTheme {
+        EmptyStateView(message = "暂无数据")
     }
 }

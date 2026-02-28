@@ -3,6 +3,7 @@ package com.zipper.compose.assetguard.ui.repayment
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.zipper.compose.assetguard.R
 import com.zipper.compose.assetguard.data.local.entity.PaymentMethodEntity
 import com.zipper.compose.assetguard.data.local.entity.RepaymentEntity
 import com.zipper.compose.assetguard.data.repository.LoanRepository
@@ -28,9 +29,9 @@ data class RepaymentFormUiState(
     val isEditing: Boolean = false,
     val isSaving: Boolean = false,
     val isSaved: Boolean = false,
-    val amountError: String? = null,
-    val dateError: String? = null,
-    val paymentMethodError: String? = null,
+    val amountError: Int? = null,
+    val dateError: Int? = null,
+    val paymentMethodError: Int? = null,
     val overpayWarning: String? = null
 )
 
@@ -90,7 +91,7 @@ class RepaymentFormViewModel(
 
     fun onRepayDateChanged(date: Long) {
         val dateError = if (date < _uiState.value.loanDate && _uiState.value.loanDate > 0) {
-            "还款日期不能早于借款日"
+            R.string.error_repay_date_before_loan
         } else null
         _uiState.value = _uiState.value.copy(repayDate = date, dateError = dateError)
     }
@@ -107,16 +108,16 @@ class RepaymentFormViewModel(
         val state = _uiState.value
         val amountCents = MoneyUtils.yuanStringToCents(state.amountText)
         if (amountCents <= 0) {
-            _uiState.value = state.copy(amountError = "请输入有效金额")
+            _uiState.value = state.copy(amountError = R.string.error_invalid_amount)
             return
         }
         val paymentMethodId = state.paymentMethodId
         if (paymentMethodId == null) {
-            _uiState.value = state.copy(paymentMethodError = "请选择支付方式")
+            _uiState.value = state.copy(paymentMethodError = R.string.error_select_payment_method)
             return
         }
         if (state.loanDate > 0 && state.repayDate < state.loanDate) {
-            _uiState.value = state.copy(dateError = "还款日期不能早于借款日")
+            _uiState.value = state.copy(dateError = R.string.error_repay_date_before_loan)
             return
         }
 

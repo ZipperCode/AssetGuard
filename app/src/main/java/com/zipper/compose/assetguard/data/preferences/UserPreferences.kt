@@ -1,5 +1,7 @@
 package com.zipper.compose.assetguard.data.preferences
 
+import com.zipper.compose.assetguard.data.model.ThemeMode
+
 data class UserPreferences(
     // 提醒设置
     val reminderHour: Int = 9,
@@ -13,5 +15,8 @@ data class UserPreferences(
     val notificationPermissionAsked: Boolean = false,
 
     // 安全设置（预留）
-    val appLockEnabled: Boolean = false
+    val appLockEnabled: Boolean = false,
+
+    // 外观设置
+    val themeMode: ThemeMode = ThemeMode.SYSTEM
 )

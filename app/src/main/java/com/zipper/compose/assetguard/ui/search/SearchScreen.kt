@@ -1,6 +1,6 @@
 package com.zipper.compose.assetguard.ui.search
 
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -16,43 +16,48 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.zipper.compose.assetguard.R
 import com.zipper.compose.assetguard.data.local.entity.LoanStatus
 import com.zipper.compose.assetguard.di.AppContainer
+import com.zipper.compose.assetguard.ui.components.AvatarView
 import com.zipper.compose.assetguard.ui.components.EmptyStateView
 import com.zipper.compose.assetguard.ui.components.MoneyText
 import com.zipper.compose.assetguard.ui.components.StatusChip
+import com.zipper.compose.assetguard.ui.theme.spacing
 import com.zipper.compose.assetguard.util.DateUtils
-import com.zipper.compose.assetguard.util.MoneyUtils
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun SearchScreen(
     container: AppContainer,
-    onBack: () -> Unit,
     onPersonClick: (Long) -> Unit,
     onLoanClick: (Long) -> Unit,
     viewModel: SearchViewModel = viewModel(factory = SearchViewModel.factory(container))
@@ -62,17 +67,11 @@ fun SearchScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("搜索") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = viewModel::toggleFilter) {
-                        Icon(Icons.Default.FilterList, contentDescription = "筛选")
-                    }
-                }
+                title = { Text(stringResource(R.string.search_title)) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground
+                )
             )
         }
     ) { paddingValues ->
@@ -80,72 +79,91 @@ fun SearchScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            contentPadding = PaddingValues(MaterialTheme.spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.md)
         ) {
-            // 搜索栏
+            // 搜索栏 — filled style, rounded corners 20dp, background surfaceVariant (#1A1A1D)
             item {
-                OutlinedTextField(
+                TextField(
                     value = uiState.query,
                     onValueChange = viewModel::onQueryChanged,
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("搜索联系人或借条...") },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    placeholder = {
+                        Text(
+                            text = stringResource(R.string.search_hint),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Search,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
                     trailingIcon = {
                         if (uiState.query.isNotEmpty()) {
                             IconButton(onClick = { viewModel.onQueryChanged("") }) {
-                                Icon(Icons.Default.Clear, contentDescription = "清除")
+                                Icon(
+                                    Icons.Default.Clear,
+                                    contentDescription = stringResource(R.string.action_clear),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                         }
                     },
-                    singleLine = true
+                    singleLine = true,
+                    shape = RoundedCornerShape(20.dp),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        disabledIndicatorColor = Color.Transparent
+                    )
                 )
             }
 
-            // 筛选面板
+            // 筛选标签 — 始终显示 FlowRow，无展开/折叠
             item {
-                AnimatedVisibility(visible = uiState.isFilterExpanded) {
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "状态筛选",
-                                    style = MaterialTheme.typography.titleSmall
-                                )
-                                TextButton(onClick = viewModel::clearFilters) {
-                                    Text("清除筛选")
-                                }
-                            }
-                            Spacer(Modifier.height(8.dp))
-                            FlowRow(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                val statuses = listOf(
-                                    LoanStatus.UNPAID to "未还",
-                                    LoanStatus.PARTIAL to "部分归还",
-                                    LoanStatus.OVERDUE to "逾期",
-                                    LoanStatus.DISPUTED to "争议中",
-                                    LoanStatus.BAD_DEBT to "坏账"
-                                )
-                                statuses.forEach { (status, label) ->
-                                    FilterChip(
-                                        selected = uiState.filter.statusFilter == status,
-                                        onClick = {
-                                            viewModel.onFilterChanged(
-                                                uiState.filter.copy(
-                                                    statusFilter = if (uiState.filter.statusFilter == status) null else status
-                                                )
-                                            )
-                                        },
-                                        label = { Text(label) }
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.search_status_filter),
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        TextButton(onClick = viewModel::clearFilters) {
+                            Text(stringResource(R.string.search_clear_filter))
+                        }
+                    }
+                    Spacer(Modifier.height(MaterialTheme.spacing.sm))
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.sm),
+                        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.xs)
+                    ) {
+                        val statuses = listOf(
+                            LoanStatus.UNPAID to stringResource(R.string.status_unpaid),
+                            LoanStatus.PARTIAL to stringResource(R.string.status_partial),
+                            LoanStatus.OVERDUE to stringResource(R.string.status_overdue),
+                            LoanStatus.DISPUTED to stringResource(R.string.status_disputed),
+                            LoanStatus.BAD_DEBT to stringResource(R.string.status_bad_debt)
+                        )
+                        statuses.forEach { (status, label) ->
+                            FilterChip(
+                                selected = uiState.filter.statusFilter == status,
+                                onClick = {
+                                    viewModel.onFilterChanged(
+                                        uiState.filter.copy(
+                                            statusFilter = if (uiState.filter.statusFilter == status) null else status
+                                        )
                                     )
-                                }
-                            }
+                                },
+                                label = { Text(label) }
+                            )
                         }
                     }
                 }
@@ -155,7 +173,7 @@ fun SearchScreen(
             if (uiState.persons.isNotEmpty()) {
                 item {
                     Text(
-                        text = "联系人 (${uiState.persons.size})",
+                        text = stringResource(R.string.search_persons_count, uiState.persons.size),
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -164,16 +182,20 @@ fun SearchScreen(
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { onPersonClick(person.person.id) }
+                            .clickable { onPersonClick(person.person.id) },
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
                     ) {
                         Row(
                             modifier = Modifier
-                                .padding(16.dp)
+                                .padding(MaterialTheme.spacing.lg)
                                 .fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
+                            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.md),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column {
+                            AvatarView(name = person.person.name)
+                            Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = person.person.name,
                                     style = MaterialTheme.typography.titleMedium
@@ -195,7 +217,7 @@ fun SearchScreen(
                                     fontWeight = FontWeight.Medium
                                 )
                                 Text(
-                                    text = "${person.unpaidLoanCount} 笔未结清",
+                                    text = stringResource(R.string.search_unpaid_count, person.unpaidLoanCount),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -209,7 +231,7 @@ fun SearchScreen(
             if (uiState.loans.isNotEmpty()) {
                 item {
                     Text(
-                        text = "借条 (${uiState.loans.size})",
+                        text = stringResource(R.string.search_loans_count, uiState.loans.size),
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.primary
                     )
@@ -218,30 +240,33 @@ fun SearchScreen(
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { onLoanClick(loan.id) }
+                            .clickable { onLoanClick(loan.id) },
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
                     ) {
                         Row(
                             modifier = Modifier
-                                .padding(16.dp)
+                                .padding(MaterialTheme.spacing.lg)
                                 .fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column {
+                            Column(modifier = Modifier.weight(1f)) {
                                 MoneyText(
                                     cents = loan.amount,
                                     style = MaterialTheme.typography.titleMedium,
                                     fontWeight = FontWeight.Bold
                                 )
-                                Spacer(Modifier.height(4.dp))
+                                Spacer(Modifier.height(MaterialTheme.spacing.xs))
                                 Row {
                                     Text(
-                                        text = "借款日: ${DateUtils.formatDate(loan.loanDate)}",
+                                        text = stringResource(R.string.search_loan_date, DateUtils.formatDate(loan.loanDate)),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     loan.dueDate?.let {
-                                        Spacer(Modifier.width(8.dp))
+                                        Spacer(Modifier.width(MaterialTheme.spacing.sm))
                                         Text(
                                             text = DateUtils.dueDateDescription(it),
                                             style = MaterialTheme.typography.bodySmall,
@@ -261,7 +286,7 @@ fun SearchScreen(
             if (uiState.query.isNotBlank() && uiState.persons.isEmpty() && uiState.loans.isEmpty()) {
                 item {
                     EmptyStateView(
-                        message = "未找到匹配结果",
+                        message = stringResource(R.string.search_empty_no_match),
                         icon = Icons.Default.Search
                     )
                 }
@@ -270,7 +295,7 @@ fun SearchScreen(
             if (uiState.query.isBlank() && uiState.filter == SearchFilter()) {
                 item {
                     EmptyStateView(
-                        message = "输入关键词或使用筛选条件搜索",
+                        message = stringResource(R.string.search_empty_hint),
                         icon = Icons.Default.Search
                     )
                 }

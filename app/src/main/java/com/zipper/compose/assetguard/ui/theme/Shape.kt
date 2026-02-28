@@ -11,3 +11,6 @@ val Shapes = Shapes(
     large = RoundedCornerShape(16.dp),
     extraLarge = RoundedCornerShape(28.dp),
 )
+
+val CapsuleShape = RoundedCornerShape(100.dp)
+val BadgeShape = RoundedCornerShape(4.dp)

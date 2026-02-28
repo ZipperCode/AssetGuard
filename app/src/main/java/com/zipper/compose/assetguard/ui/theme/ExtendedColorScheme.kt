@@ -18,6 +18,18 @@ data class ExtendedColorScheme(
     val onInfo: Color,
     val infoContainer: Color,
     val onInfoContainer: Color,
+    // 状态色
+    val unpaid: Color,
+    val partial: Color,
+    val paid: Color,
+    val overdue: Color,
+    val disputed: Color,
+    val archived: Color,
+    val badDebt: Color,
+    // 辅助色
+    val accent: Color,
+    val textMuted: Color,
+    val textDisabled: Color,
 )
 
 val LightExtendedColorScheme = ExtendedColorScheme(
@@ -33,6 +45,16 @@ val LightExtendedColorScheme = ExtendedColorScheme(
     onInfo = onInfo_light,
     infoContainer = infoContainer_light,
     onInfoContainer = onInfoContainer_light,
+    unpaid = StatusUnpaid,
+    partial = StatusPartial,
+    paid = StatusPaid,
+    overdue = StatusOverdue,
+    disputed = StatusDisputed,
+    archived = StatusArchived,
+    badDebt = StatusBadDebt,
+    accent = AccentAmber,
+    textMuted = TextMuted,
+    textDisabled = TextDisabled,
 )
 
 val DarkExtendedColorScheme = ExtendedColorScheme(
@@ -48,6 +70,16 @@ val DarkExtendedColorScheme = ExtendedColorScheme(
     onInfo = onInfo_dark,
     infoContainer = infoContainer_dark,
     onInfoContainer = onInfoContainer_dark,
+    unpaid = StatusUnpaid,
+    partial = StatusPartial,
+    paid = StatusPaid,
+    overdue = StatusOverdue,
+    disputed = StatusDisputed,
+    archived = StatusArchived,
+    badDebt = StatusBadDebt,
+    accent = AccentAmber,
+    textMuted = TextMuted,
+    textDisabled = TextDisabled,
 )
 
 val LocalExtendedColorScheme = staticCompositionLocalOf {

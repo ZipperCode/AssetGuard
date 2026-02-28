@@ -9,7 +9,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.zipper.compose.assetguard.ui.theme.AssetGuardTheme
 
 @Composable
 fun ConfirmDialog(
@@ -48,4 +50,18 @@ fun ConfirmDialog(
             }
         }
     )
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun ConfirmDialogPreview() {
+    AssetGuardTheme {
+        ConfirmDialog(
+            title = "确认删除",
+            message = "删除后无法恢复，确定要继续吗？",
+            onConfirm = {},
+            onDismiss = {},
+            impactDescription = "关联的还款记录也将被删除"
+        )
+    }
 }

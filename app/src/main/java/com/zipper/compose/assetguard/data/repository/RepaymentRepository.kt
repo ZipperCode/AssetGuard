@@ -26,7 +26,7 @@ class RepaymentRepository(
         recalculateLoanStatus(repayment.loanId)
     }
 
-    suspend fun delete(repayment: RepaymentEntity) {
+    suspend fun delete(repayment: RepaymentEntity): Result<Unit> = runCatching {
         repaymentDao.delete(repayment)
         recalculateLoanStatus(repayment.loanId)
     }

@@ -6,7 +6,9 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.zipper.compose.assetguard.data.model.ThemeMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -23,6 +25,7 @@ class UserPreferencesRepository(private val context: Context) {
         val SILENT_END_HOUR = intPreferencesKey("silent_end_hour")
         val NOTIFICATION_PERMISSION_ASKED = booleanPreferencesKey("notification_permission_asked")
         val APP_LOCK_ENABLED = booleanPreferencesKey("app_lock_enabled")
+        val THEME_MODE = stringPreferencesKey("theme_mode")
     }
 
     val userPreferences: Flow<UserPreferences> = context.dataStore.data.map { prefs ->
@@ -34,7 +37,12 @@ class UserPreferencesRepository(private val context: Context) {
             silentStartHour = prefs[Keys.SILENT_START_HOUR] ?: 22,
             silentEndHour = prefs[Keys.SILENT_END_HOUR] ?: 8,
             notificationPermissionAsked = prefs[Keys.NOTIFICATION_PERMISSION_ASKED] ?: false,
-            appLockEnabled = prefs[Keys.APP_LOCK_ENABLED] ?: false
+            appLockEnabled = prefs[Keys.APP_LOCK_ENABLED] ?: false,
+            themeMode = try {
+                ThemeMode.valueOf(prefs[Keys.THEME_MODE] ?: ThemeMode.SYSTEM.name)
+            } catch (_: IllegalArgumentException) {
+                ThemeMode.SYSTEM
+            }
         )
     }
 
@@ -73,6 +81,20 @@ class UserPreferencesRepository(private val context: Context) {
     suspend fun setAppLockEnabled(enabled: Boolean) {
         context.dataStore.edit { prefs ->
             prefs[Keys.APP_LOCK_ENABLED] = enabled
+        }
+    }
+
+    suspend fun saveThemeMode(mode: ThemeMode) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.THEME_MODE] = mode.name
+        }
+    }
+
+    fun observeThemeMode(): Flow<ThemeMode> = context.dataStore.data.map { prefs ->
+        try {
+            ThemeMode.valueOf(prefs[Keys.THEME_MODE] ?: ThemeMode.SYSTEM.name)
+        } catch (_: IllegalArgumentException) {
+            ThemeMode.SYSTEM
         }
     }
 }

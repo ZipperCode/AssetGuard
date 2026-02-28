@@ -1,6 +1,8 @@
 package com.zipper.compose.assetguard.ui.repayment
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,8 +16,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -25,24 +25,32 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.zipper.compose.assetguard.R
+import com.zipper.compose.assetguard.data.local.entity.LoanStatus
 import com.zipper.compose.assetguard.di.AppContainer
-import com.zipper.compose.assetguard.util.DateUtils
+import com.zipper.compose.assetguard.ui.components.DatePickerField
+import com.zipper.compose.assetguard.ui.components.GradientCard
+import com.zipper.compose.assetguard.ui.components.StatusChip
+import com.zipper.compose.assetguard.ui.theme.spacing
 import com.zipper.compose.assetguard.util.MoneyUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -58,7 +66,6 @@ fun RepaymentFormScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val paymentMethods by viewModel.paymentMethods.collectAsStateWithLifecycle()
-    var showDatePicker by remember { mutableStateOf(false) }
     var paymentMethodExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.isSaved) {
@@ -71,167 +78,186 @@ fun RepaymentFormScreen(
         }
     }
 
+    val inputColors = OutlinedTextFieldDefaults.colors(
+        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        focusedBorderColor = MaterialTheme.colorScheme.primary,
+        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+        focusedLabelColor = MaterialTheme.colorScheme.primary,
+        unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        cursorColor = MaterialTheme.colorScheme.primary,
+    )
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (uiState.isEditing) "编辑还款" else "新增还款") },
+                title = { Text(stringResource(if (uiState.isEditing) R.string.repayment_form_title_edit else R.string.repayment_form_title_add)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                )
             )
+        },
+        bottomBar = {
+            Surface(
+                tonalElevation = MaterialTheme.spacing.xs,
+                shadowElevation = MaterialTheme.spacing.sm,
+                color = MaterialTheme.colorScheme.background,
+            ) {
+                Button(
+                    onClick = viewModel::save,
+                    enabled = !uiState.isSaving,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = MaterialTheme.spacing.lg, vertical = MaterialTheme.spacing.md)
+                ) {
+                    Text(stringResource(if (uiState.isSaving) R.string.action_saving else R.string.action_save))
+                }
+            }
         }
     ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp)
+                .padding(MaterialTheme.spacing.lg)
                 .verticalScroll(rememberScrollState())
         ) {
-            // 借条余额参考
+            // 借条余额参考 - GradientCard
             if (uiState.loanAmount > 0) {
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
+                val repaidAmount = uiState.loanAmount - uiState.remainingAmount
+                val loanStatus = LoanStatus.fromRepaid(repaidAmount, uiState.loanAmount)
+
+                GradientCard(
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = stringResource(R.string.repayment_form_remaining, MoneyUtils.formatCents(uiState.remainingAmount)),
+                                style = MaterialTheme.typography.titleMedium,
+                                color = Color.White,
+                            )
+                            StatusChip(status = loanStatus)
+                        }
+
+                        Spacer(Modifier.height(MaterialTheme.spacing.sm))
+
                         Text(
-                            text = "借条金额: ${MoneyUtils.formatCents(uiState.loanAmount)}",
+                            text = stringResource(R.string.repayment_form_loan_amount, MoneyUtils.formatCents(uiState.loanAmount)),
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = "剩余待还: ${MoneyUtils.formatCents(uiState.remainingAmount)}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (uiState.remainingAmount > 0) MaterialTheme.colorScheme.error
-                            else MaterialTheme.colorScheme.primary
+                            color = Color.White.copy(alpha = 0.7f),
                         )
                     }
                 }
-                Spacer(Modifier.height(12.dp))
+
+                Spacer(Modifier.height(MaterialTheme.spacing.lg))
             }
 
-            OutlinedTextField(
-                value = uiState.amountText,
-                onValueChange = viewModel::onAmountChanged,
-                label = { Text("还款金额（元）*") },
-                isError = uiState.amountError != null,
-                supportingText = when {
-                    uiState.amountError != null -> {{ Text(uiState.amountError!!) }}
-                    uiState.overpayWarning != null -> {{
-                        Text(
-                            text = uiState.overpayWarning!!,
-                            color = MaterialTheme.colorScheme.error
+            // 表单区域
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                ),
+                shape = MaterialTheme.shapes.large,
+            ) {
+                Column(
+                    modifier = Modifier.padding(MaterialTheme.spacing.lg)
+                ) {
+                    OutlinedTextField(
+                        value = uiState.amountText,
+                        onValueChange = viewModel::onAmountChanged,
+                        label = { Text(stringResource(R.string.repayment_form_label_amount)) },
+                        isError = uiState.amountError != null,
+                        supportingText = when {
+                            uiState.amountError != null -> {{ Text(stringResource(uiState.amountError!!)) }}
+                            uiState.overpayWarning != null -> {{
+                                Text(
+                                    text = uiState.overpayWarning!!,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }}
+                            else -> null
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        prefix = { Text("\u00A5") },
+                        colors = inputColors,
+                    )
+
+                    Spacer(Modifier.height(MaterialTheme.spacing.md))
+
+                    // 还款日期
+                    DatePickerField(
+                        label = stringResource(R.string.repayment_form_label_date),
+                        value = uiState.repayDate,
+                        onValueChange = viewModel::onRepayDateChanged,
+                        modifier = Modifier.fillMaxWidth(),
+                        isError = uiState.dateError != null,
+                        supportingText = uiState.dateError?.let { resId -> { Text(stringResource(resId)) } }
+                    )
+
+                    Spacer(Modifier.height(MaterialTheme.spacing.md))
+
+                    // 支付方式下拉
+                    ExposedDropdownMenuBox(
+                        expanded = paymentMethodExpanded,
+                        onExpandedChange = { paymentMethodExpanded = it }
+                    ) {
+                        val selectedMethod = paymentMethods.find { it.id == uiState.paymentMethodId }
+                        OutlinedTextField(
+                            value = selectedMethod?.name ?: stringResource(R.string.label_select),
+                            onValueChange = {},
+                            label = { Text(stringResource(R.string.repayment_form_label_payment_method)) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                            readOnly = true,
+                            isError = uiState.paymentMethodError != null,
+                            supportingText = uiState.paymentMethodError?.let { resId -> { Text(stringResource(resId)) } },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = paymentMethodExpanded) },
+                            colors = inputColors,
                         )
-                    }}
-                    else -> null
-                },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                prefix = { Text("¥") }
-            )
-
-            Spacer(Modifier.height(12.dp))
-
-            // 还款日期
-            OutlinedTextField(
-                value = DateUtils.formatDate(uiState.repayDate),
-                onValueChange = {},
-                label = { Text("还款日期") },
-                modifier = Modifier.fillMaxWidth(),
-                readOnly = true,
-                isError = uiState.dateError != null,
-                supportingText = uiState.dateError?.let { { Text(it) } },
-                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }.also {
-                    LaunchedEffect(it) {
-                        it.interactions.collect { interaction ->
-                            if (interaction is androidx.compose.foundation.interaction.PressInteraction.Release) {
-                                showDatePicker = true
+                        ExposedDropdownMenu(
+                            expanded = paymentMethodExpanded,
+                            onDismissRequest = { paymentMethodExpanded = false }
+                        ) {
+                            paymentMethods.forEach { method ->
+                                DropdownMenuItem(
+                                    text = { Text(method.name) },
+                                    onClick = {
+                                        viewModel.onPaymentMethodChanged(method.id)
+                                        paymentMethodExpanded = false
+                                    }
+                                )
                             }
                         }
                     }
-                }
-            )
 
-            Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(MaterialTheme.spacing.md))
 
-            // 支付方式下拉
-            ExposedDropdownMenuBox(
-                expanded = paymentMethodExpanded,
-                onExpandedChange = { paymentMethodExpanded = it }
-            ) {
-                val selectedMethod = paymentMethods.find { it.id == uiState.paymentMethodId }
-                OutlinedTextField(
-                    value = selectedMethod?.name ?: "请选择",
-                    onValueChange = {},
-                    label = { Text("支付方式 *") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                    readOnly = true,
-                    isError = uiState.paymentMethodError != null,
-                    supportingText = uiState.paymentMethodError?.let { { Text(it) } },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = paymentMethodExpanded) }
-                )
-                ExposedDropdownMenu(
-                    expanded = paymentMethodExpanded,
-                    onDismissRequest = { paymentMethodExpanded = false }
-                ) {
-                    paymentMethods.forEach { method ->
-                        DropdownMenuItem(
-                            text = { Text(method.name) },
-                            onClick = {
-                                viewModel.onPaymentMethodChanged(method.id)
-                                paymentMethodExpanded = false
-                            }
-                        )
-                    }
+                    OutlinedTextField(
+                        value = uiState.note,
+                        onValueChange = viewModel::onNoteChanged,
+                        label = { Text(stringResource(R.string.label_note)) },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2,
+                        maxLines = 4,
+                        colors = inputColors,
+                    )
                 }
             }
-
-            Spacer(Modifier.height(12.dp))
-
-            OutlinedTextField(
-                value = uiState.note,
-                onValueChange = viewModel::onNoteChanged,
-                label = { Text("备注") },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 2,
-                maxLines = 4
-            )
-
-            Spacer(Modifier.height(24.dp))
-
-            Button(
-                onClick = viewModel::save,
-                enabled = !uiState.isSaving,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(if (uiState.isSaving) "保存中..." else "保存")
-            }
-        }
-    }
-
-    if (showDatePicker) {
-        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = uiState.repayDate)
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { viewModel.onRepayDateChanged(it) }
-                    showDatePicker = false
-                }) { Text("确认") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text("取消") }
-            }
-        ) {
-            DatePicker(state = datePickerState)
         }
     }
 }

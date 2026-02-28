@@ -13,7 +13,9 @@ class LoanRepository(private val loanDao: LoanDao) {
         loanDao.update(loan.copy(updatedAt = System.currentTimeMillis()))
     }
 
-    suspend fun delete(loan: LoanEntity) = loanDao.delete(loan)
+    suspend fun delete(loan: LoanEntity): Result<Unit> = runCatching {
+        loanDao.delete(loan)
+    }
 
     suspend fun getById(id: Long): LoanEntity? = loanDao.getById(id)
 

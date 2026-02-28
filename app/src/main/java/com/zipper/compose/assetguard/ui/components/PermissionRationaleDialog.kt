@@ -4,6 +4,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
+import com.zipper.compose.assetguard.R
 
 @Composable
 fun PermissionRationaleDialog(
@@ -12,18 +14,18 @@ fun PermissionRationaleDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("需要通知权限") },
+        title = { Text(stringResource(R.string.permission_notification_title)) },
         text = {
-            Text("AssetGuard 需要通知权限来发送借条到期提醒，帮助您及时追回欠款。\n\n您可以在系统设置中手动开启通知权限。")
+            Text(stringResource(R.string.permission_notification_desc))
         },
         confirmButton = {
             TextButton(onClick = onGoToSettings) {
-                Text("前往设置")
+                Text(stringResource(R.string.permission_go_to_settings))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("稍后再说")
+                Text(stringResource(R.string.permission_later))
             }
         }
     )

@@ -11,6 +11,7 @@ import com.zipper.compose.assetguard.data.backup.ConflictStrategy
 import com.zipper.compose.assetguard.data.backup.DataIntegrityChecker
 import com.zipper.compose.assetguard.data.backup.ImportPreview
 import com.zipper.compose.assetguard.data.backup.ImportResult
+import com.zipper.compose.assetguard.data.model.ThemeMode
 import com.zipper.compose.assetguard.data.preferences.UserPreferences
 import com.zipper.compose.assetguard.data.preferences.UserPreferencesRepository
 import com.zipper.compose.assetguard.data.repository.PaymentMethodRepository
@@ -77,6 +78,12 @@ class SettingsViewModel(
     fun setNotificationPermissionAsked() {
         viewModelScope.launch {
             userPreferencesRepository.setNotificationPermissionAsked(true)
+        }
+    }
+
+    fun updateThemeMode(mode: ThemeMode) {
+        viewModelScope.launch {
+            userPreferencesRepository.saveThemeMode(mode)
         }
     }
 

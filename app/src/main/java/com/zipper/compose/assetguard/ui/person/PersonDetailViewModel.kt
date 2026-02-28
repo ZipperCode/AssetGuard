@@ -91,9 +91,14 @@ class PersonDetailViewModel(
 
         pendingDeleteLoanJob = viewModelScope.launch {
             delay(5000)
-            loanRepository.delete(loan)
-            _pendingDeleteLoanName.value = null
-            pendingDeleteLoan = null
+            loanRepository.delete(loan).onSuccess {
+                _pendingDeleteLoanName.value = null
+                pendingDeleteLoan = null
+            }.onFailure {
+                _deleteError.value = it.message
+                _pendingDeleteLoanName.value = null
+                pendingDeleteLoan = null
+            }
         }
     }
 

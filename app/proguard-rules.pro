@@ -19,3 +19,22 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# --- Room ---
+-keep class * extends androidx.room.RoomDatabase
+-keep @androidx.room.Entity class *
+-keep @androidx.room.Dao interface *
+
+# --- Kotlinx Serialization ---
+-keepattributes *Annotation*, InnerClasses
+-dontnote kotlinx.serialization.AnnotationsKt
+-keepclassmembers @kotlinx.serialization.Serializable class ** {
+    *** Companion;
+}
+
+# --- DataStore ---
+-keep class androidx.datastore.preferences.** { *; }
+
+# --- WorkManager ---
+-keep class * extends androidx.work.Worker
+-keep class * extends androidx.work.ListenableWorker

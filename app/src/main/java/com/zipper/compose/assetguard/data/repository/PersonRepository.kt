@@ -31,4 +31,6 @@ class PersonRepository(private val personDao: PersonDao) {
     }
 
     suspend fun getAll(): List<PersonEntity> = personDao.getAll()
+
+    suspend fun searchByName(query: String): List<PersonEntity> = personDao.searchByName(query)
 }

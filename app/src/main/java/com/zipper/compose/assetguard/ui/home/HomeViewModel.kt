@@ -16,7 +16,6 @@ import com.zipper.compose.assetguard.di.AppContainer
 import com.zipper.compose.assetguard.notification.NotificationHelper
 import com.zipper.compose.assetguard.util.DateUtils
 import com.zipper.compose.assetguard.util.MoneyUtils
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,7 +23,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -33,7 +31,6 @@ data class HomeUiState(
     val totalLent: Long = 0L,
     val totalRepaid: Long = 0L,
     val dueSoonLoans: List<LoanEntity> = emptyList(),
-    val searchQuery: String = "",
     val deleteError: String? = null,
     // KPI
     val overdueCount: Int = 0,
@@ -48,15 +45,12 @@ data class HomeUiState(
     val totalOutstanding: Long get() = totalLent - totalRepaid
 }
 
-@OptIn(ExperimentalCoroutinesApi::class)
 class HomeViewModel(
     private val personRepository: PersonRepository,
     private val loanRepository: LoanRepository,
     private val repaymentRepository: RepaymentRepository,
     private val backupManager: BackupManager
 ) : ViewModel() {
-
-    private val _searchQuery = MutableStateFlow("")
 
     private val _deleteError = MutableStateFlow<String?>(null)
     val deleteError: StateFlow<String?> = _deleteError.asStateFlow()
@@ -77,10 +71,7 @@ class HomeViewModel(
     private val tomorrowStart = todayStart + 86_400_000L
 
     val uiState: StateFlow<HomeUiState> = combine(
-        _searchQuery.flatMapLatest { query ->
-            if (query.isBlank()) personRepository.observeAllWithSummary()
-            else personRepository.searchWithSummary(query)
-        },
+        personRepository.observeAllWithSummary(),
         loanRepository.observeTotalLent(),
         repaymentRepository.observeTotalRepaid(),
         loanRepository.observeOverdueOrDueSoon(DateUtils.daysFromNow(7)),
@@ -98,7 +89,6 @@ class HomeViewModel(
             totalLent = values[1] as Long,
             totalRepaid = values[2] as Long,
             dueSoonLoans = values[3] as List<LoanEntity>,
-            searchQuery = _searchQuery.value,
             deleteError = values[4] as String?,
             overdueCount = values[5] as Int,
             dueTodayCount = values[6] as Int,
@@ -108,10 +98,6 @@ class HomeViewModel(
             selectedPersonIds = values[10] as Set<Long>
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), HomeUiState())
-
-    fun onSearchQueryChanged(query: String) {
-        _searchQuery.value = query
-    }
 
     fun deletePerson(personWithSummary: PersonWithSummary) {
         pendingDeleteJob?.cancel()

@@ -3,6 +3,7 @@ package com.zipper.compose.assetguard.ui.person
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.zipper.compose.assetguard.R
 import com.zipper.compose.assetguard.data.local.entity.PersonEntity
 import com.zipper.compose.assetguard.data.repository.PersonRepository
 import com.zipper.compose.assetguard.di.AppContainer
@@ -18,7 +19,7 @@ data class PersonFormUiState(
     val isEditing: Boolean = false,
     val isSaving: Boolean = false,
     val isSaved: Boolean = false,
-    val nameError: String? = null
+    val nameError: Int? = null
 )
 
 class PersonFormViewModel(
@@ -58,7 +59,7 @@ class PersonFormViewModel(
     fun save() {
         val state = _uiState.value
         if (state.name.isBlank()) {
-            _uiState.value = state.copy(nameError = "姓名不能为空")
+            _uiState.value = state.copy(nameError = R.string.error_name_empty)
             return
         }
 

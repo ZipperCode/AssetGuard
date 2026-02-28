@@ -16,29 +16,34 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.HealthAndSafety
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Payment
+import androidx.compose.material.icons.filled.SettingsSuggest
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -46,6 +51,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -55,27 +61,25 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.zipper.compose.assetguard.R
 import com.zipper.compose.assetguard.data.backup.BackupManager
-import com.zipper.compose.assetguard.data.backup.ConflictStrategy
 import com.zipper.compose.assetguard.data.backup.DatabaseBackupManager
-import com.zipper.compose.assetguard.data.backup.DataIntegrityChecker
-import com.zipper.compose.assetguard.data.backup.ImportPreview
-import com.zipper.compose.assetguard.data.backup.ImportResult
+import com.zipper.compose.assetguard.data.model.ThemeMode
 import com.zipper.compose.assetguard.di.AppContainer
 import com.zipper.compose.assetguard.ui.components.PermissionRationaleDialog
-import com.zipper.compose.assetguard.util.MoneyUtils
+import com.zipper.compose.assetguard.ui.theme.spacing
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     container: AppContainer,
-    onBack: () -> Unit,
     onPaymentMethodManage: () -> Unit,
     viewModel: SettingsViewModel = viewModel(factory = SettingsViewModel.factory(container))
 ) {
@@ -116,7 +120,7 @@ fun SettingsScreen(
             scope.launch {
                 val result = backupManager.exportJson(context, it)
                 snackbarHostState.showSnackbar(
-                    if (result.isSuccess) "JSON 备份导出成功" else "导出失败: ${result.exceptionOrNull()?.message}"
+                    if (result.isSuccess) context.getString(R.string.settings_json_export_success) else context.getString(R.string.settings_export_failed, result.exceptionOrNull()?.message ?: "")
                 )
             }
         }
@@ -139,7 +143,7 @@ fun SettingsScreen(
             scope.launch {
                 val result = dbBackupManager.exportDatabase(context, it)
                 snackbarHostState.showSnackbar(
-                    if (result.isSuccess) "数据库备份导出成功" else "导出失败: ${result.exceptionOrNull()?.message}"
+                    if (result.isSuccess) context.getString(R.string.settings_db_export_success) else context.getString(R.string.settings_export_failed, result.exceptionOrNull()?.message ?: "")
                 )
             }
         }
@@ -153,21 +157,27 @@ fun SettingsScreen(
             scope.launch {
                 val result = dbBackupManager.importDatabase(context, it)
                 snackbarHostState.showSnackbar(
-                    if (result.isSuccess) "数据库恢复成功，请重启应用" else "导入失败: ${result.exceptionOrNull()?.message}"
+                    if (result.isSuccess) context.getString(R.string.settings_db_import_success) else context.getString(R.string.settings_import_failed, result.exceptionOrNull()?.message ?: "")
                 )
             }
         }
     }
 
+    val cardColors = CardDefaults.cardColors(
+        containerColor = MaterialTheme.colorScheme.surfaceVariant
+    )
+    val listItemColors = ListItemDefaults.colors(
+        containerColor = Color.Transparent
+    )
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("设置") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
-                    }
-                }
+                title = { Text(stringResource(R.string.settings_title)) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground
+                )
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
@@ -177,152 +187,244 @@ fun SettingsScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState())
+                .padding(horizontal = MaterialTheme.spacing.lg),
+            verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.md)
         ) {
-            // 通知设置
+            Spacer(Modifier.height(MaterialTheme.spacing.sm))
+
+            // ── 外观设置 Card ──
             Text(
-                text = "通知提醒",
+                text = stringResource(R.string.settings_section_appearance),
                 style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp)
+                color = MaterialTheme.colorScheme.primary
             )
 
-            ListItem(
-                headlineContent = { Text("通知权限") },
-                supportingContent = { Text(if (prefs.notificationPermissionAsked) "已请求过权限" else "点击授权通知") },
-                leadingContent = { Icon(Icons.Default.Notifications, contentDescription = null) },
-                modifier = Modifier.clickable {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                    }
-                }
-            )
-
-            // 提醒时间
             Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                modifier = Modifier.fillMaxWidth(),
+                colors = cardColors
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("提醒时间", style = MaterialTheme.typography.titleSmall)
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = "每日 ${String.format("%02d:%02d", prefs.reminderHour, prefs.reminderMinute)} 推送提醒",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Spacer(Modifier.height(12.dp))
-
-                    Text("提前提醒天数: ${prefs.reminderAdvanceDays} 天", style = MaterialTheme.typography.bodySmall)
-                    Slider(
-                        value = prefs.reminderAdvanceDays.toFloat(),
-                        onValueChange = { viewModel.updateReminderAdvanceDays(it.toInt()) },
-                        valueRange = 0f..7f,
-                        steps = 6
-                    )
-
+                Column(modifier = Modifier.padding(MaterialTheme.spacing.lg)) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text(
-                            text = "仅提醒已逾期",
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.weight(1f)
+                        Icon(
+                            Icons.Default.Palette,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Switch(
-                            checked = prefs.onlyOverdue,
-                            onCheckedChange = viewModel::updateOnlyOverdue
+                        Spacer(Modifier.width(MaterialTheme.spacing.md))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.settings_theme),
+                                style = MaterialTheme.typography.titleSmall
+                            )
+                            Text(
+                                text = stringResource(R.string.settings_theme_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(MaterialTheme.spacing.md))
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        val options = listOf(
+                            Triple(ThemeMode.LIGHT, R.string.theme_light, Icons.Default.LightMode),
+                            Triple(ThemeMode.DARK, R.string.theme_dark, Icons.Default.DarkMode),
+                            Triple(ThemeMode.SYSTEM, R.string.theme_system, Icons.Default.SettingsSuggest),
+                        )
+                        options.forEachIndexed { index, (mode, labelRes, icon) ->
+                            SegmentedButton(
+                                shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
+                                onClick = { viewModel.updateThemeMode(mode) },
+                                selected = prefs.themeMode == mode,
+                                icon = {
+                                    SegmentedButtonDefaults.Icon(active = prefs.themeMode == mode) {
+                                        Icon(
+                                            imageVector = icon,
+                                            contentDescription = null,
+                                            modifier = Modifier.height(SegmentedButtonDefaults.IconSize)
+                                        )
+                                    }
+                                }
+                            ) {
+                                Text(stringResource(labelRes))
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── 通知设置 Card ──
+            Text(
+                text = stringResource(R.string.settings_section_notification),
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = cardColors
+            ) {
+                Column {
+                    // 通知权限
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.settings_notification_perm)) },
+                        supportingContent = { Text(stringResource(if (prefs.notificationPermissionAsked) R.string.settings_perm_asked else R.string.settings_perm_grant)) },
+                        leadingContent = { Icon(Icons.Default.Notifications, contentDescription = null) },
+                        colors = listItemColors,
+                        modifier = Modifier.clickable {
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            }
+                        }
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                    // 提醒时间设置
+                    Column(modifier = Modifier.padding(MaterialTheme.spacing.lg)) {
+                        Text(stringResource(R.string.settings_reminder_time), style = MaterialTheme.typography.titleSmall)
+                        Spacer(Modifier.height(MaterialTheme.spacing.sm))
+                        Text(
+                            text = stringResource(R.string.settings_daily_reminder, String.format("%02d:%02d", prefs.reminderHour, prefs.reminderMinute)),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Spacer(Modifier.height(MaterialTheme.spacing.md))
+
+                        Text(stringResource(R.string.settings_advance_days, prefs.reminderAdvanceDays), style = MaterialTheme.typography.bodySmall)
+                        Slider(
+                            value = prefs.reminderAdvanceDays.toFloat(),
+                            onValueChange = { viewModel.updateReminderAdvanceDays(it.toInt()) },
+                            valueRange = 0f..7f,
+                            steps = 6
+                        )
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = stringResource(R.string.settings_only_overdue),
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Switch(
+                                checked = prefs.onlyOverdue,
+                                onCheckedChange = viewModel::updateOnlyOverdue
+                            )
+                        }
+
+                        Spacer(Modifier.height(MaterialTheme.spacing.sm))
+                        Text(
+                            text = stringResource(R.string.settings_silent_hours, prefs.silentStartHour, prefs.silentEndHour),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        text = "静音时段: ${prefs.silentStartHour}:00 - ${prefs.silentEndHour}:00",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                    // 支付方式管理
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.settings_payment_method)) },
+                        supportingContent = { Text(stringResource(R.string.settings_payment_method_desc)) },
+                        leadingContent = { Icon(Icons.Default.Payment, contentDescription = null) },
+                        colors = listItemColors,
+                        modifier = Modifier.clickable(onClick = onPaymentMethodManage)
                     )
                 }
             }
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-            // 支付方式管理
-            ListItem(
-                headlineContent = { Text("支付方式管理") },
-                supportingContent = { Text("管理微信、支付宝等支付方式") },
-                leadingContent = { Icon(Icons.Default.Payment, contentDescription = null) },
-                modifier = Modifier.clickable(onClick = onPaymentMethodManage)
-            )
-            HorizontalDivider()
-
-            // 数据备份
+            // ── 数据管理 Card ──
             Text(
-                text = "数据备份",
+                text = stringResource(R.string.settings_section_backup),
                 style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp)
+                color = MaterialTheme.colorScheme.primary
             )
 
-            ListItem(
-                headlineContent = { Text("导出 JSON 备份") },
-                supportingContent = { Text("跨平台可读的 JSON 格式") },
-                leadingContent = { Icon(Icons.Default.CloudUpload, contentDescription = null) },
-                modifier = Modifier.clickable {
-                    jsonExportLauncher.launch("assetguard_backup.json")
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = cardColors
+            ) {
+                Column {
+                    // JSON 导出
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.settings_export_json)) },
+                        supportingContent = { Text(stringResource(R.string.settings_export_json_desc)) },
+                        leadingContent = { Icon(Icons.Default.CloudUpload, contentDescription = null) },
+                        colors = listItemColors,
+                        modifier = Modifier.clickable {
+                            jsonExportLauncher.launch("assetguard_backup.json")
+                        }
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                    // JSON 导入
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.settings_import_json)) },
+                        supportingContent = { Text(stringResource(R.string.settings_import_json_desc)) },
+                        leadingContent = { Icon(Icons.Default.CloudDownload, contentDescription = null) },
+                        colors = listItemColors,
+                        modifier = Modifier.clickable {
+                            jsonImportLauncher.launch(arrayOf("application/json"))
+                        }
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                    // SQLite 导出
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.settings_export_db)) },
+                        supportingContent = { Text(stringResource(R.string.settings_export_db_desc)) },
+                        leadingContent = { Icon(Icons.Default.CloudUpload, contentDescription = null) },
+                        colors = listItemColors,
+                        modifier = Modifier.clickable {
+                            dbExportLauncher.launch("assetguard_backup.db")
+                        }
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                    // SQLite 导入
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.settings_import_db)) },
+                        supportingContent = { Text(stringResource(R.string.settings_import_db_desc)) },
+                        leadingContent = { Icon(Icons.Default.CloudDownload, contentDescription = null) },
+                        colors = listItemColors,
+                        modifier = Modifier.clickable {
+                            dbImportLauncher.launch(arrayOf("application/octet-stream", "application/x-sqlite3"))
+                        }
+                    )
+
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                    // 数据完整性检查
+                    ListItem(
+                        headlineContent = { Text(stringResource(R.string.settings_integrity_check)) },
+                        supportingContent = { Text(stringResource(R.string.settings_integrity_check_desc)) },
+                        leadingContent = { Icon(Icons.Default.HealthAndSafety, contentDescription = null) },
+                        colors = listItemColors,
+                        modifier = Modifier.clickable { viewModel.runIntegrityCheck() }
+                    )
                 }
-            )
-
-            ListItem(
-                headlineContent = { Text("导入 JSON 备份") },
-                supportingContent = { Text("从 JSON 文件恢复数据（支持预览）") },
-                leadingContent = { Icon(Icons.Default.CloudDownload, contentDescription = null) },
-                modifier = Modifier.clickable {
-                    jsonImportLauncher.launch(arrayOf("application/json"))
-                }
-            )
-            HorizontalDivider()
-
-            ListItem(
-                headlineContent = { Text("导出数据库备份") },
-                supportingContent = { Text("SQLite 数据库文件，快速恢复") },
-                leadingContent = { Icon(Icons.Default.CloudUpload, contentDescription = null) },
-                modifier = Modifier.clickable {
-                    dbExportLauncher.launch("assetguard_backup.db")
-                }
-            )
-
-            ListItem(
-                headlineContent = { Text("导入数据库备份") },
-                supportingContent = { Text("从 SQLite 文件恢复（需重启应用）") },
-                leadingContent = { Icon(Icons.Default.CloudDownload, contentDescription = null) },
-                modifier = Modifier.clickable {
-                    dbImportLauncher.launch(arrayOf("application/octet-stream", "application/x-sqlite3"))
-                }
-            )
-            HorizontalDivider()
-
-            // 数据完整性检查
-            Text(
-                text = "数据维护",
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp)
-            )
-
-            ListItem(
-                headlineContent = { Text("数据完整性检查") },
-                supportingContent = { Text("检测孤儿记录、状态不一致等问题") },
-                leadingContent = { Icon(Icons.Default.HealthAndSafety, contentDescription = null) },
-                modifier = Modifier.clickable { viewModel.runIntegrityCheck() }
-            )
-            HorizontalDivider()
+            }
 
             // 关于
-            ListItem(
-                headlineContent = { Text("关于") },
-                supportingContent = { Text("AssetGuard v1.0") },
-                leadingContent = { Icon(Icons.Default.Info, contentDescription = null) }
-            )
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = cardColors
+            ) {
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_about)) },
+                    supportingContent = { Text(stringResource(R.string.settings_version)) },
+                    leadingContent = { Icon(Icons.Default.Info, contentDescription = null) },
+                    colors = listItemColors
+                )
+            }
+
+            Spacer(Modifier.height(MaterialTheme.spacing.md))
         }
     }
 
@@ -355,14 +457,14 @@ fun SettingsScreen(
             AlertDialog(
                 onDismissRequest = {},
                 confirmButton = {},
-                title = { Text("正在导入") },
+                title = { Text(stringResource(R.string.import_title_importing)) },
                 text = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.lg)
                     ) {
                         CircularProgressIndicator()
-                        Text("请稍候，正在导入数据...")
+                        Text(stringResource(R.string.import_msg_importing))
                     }
                 }
             )
@@ -378,10 +480,10 @@ fun SettingsScreen(
                 onDismissRequest = { viewModel.resetImportState() },
                 confirmButton = {
                     TextButton(onClick = { viewModel.resetImportState() }) {
-                        Text("确定")
+                        Text(stringResource(R.string.action_ok))
                     }
                 },
-                title = { Text("导入失败") },
+                title = { Text(stringResource(R.string.import_title_failed)) },
                 text = { Text(state.message) }
             )
         }
@@ -395,229 +497,4 @@ fun SettingsScreen(
             onDismiss = { viewModel.clearIntegrityReport() }
         )
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ImportPreviewDialog(
-    preview: ImportPreview,
-    onConfirm: (ConflictStrategy) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var selectedStrategy by remember { mutableStateOf(ConflictStrategy.SKIP) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(onClick = { onConfirm(selectedStrategy) }) {
-                Text("开始导入")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
-            }
-        },
-        title = { Text("导入预览") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("即将导入以下数据：", style = MaterialTheme.typography.bodyMedium)
-
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        PreviewRow("联系人", "${preview.newPersonCount} 条")
-                        PreviewRow("借条", "${preview.newLoanCount} 条")
-                        PreviewRow("还款记录", "${preview.newRepaymentCount} 条")
-                        PreviewRow("支付方式", "${preview.newPaymentMethodCount} 条")
-                        if (preview.totalAmount > 0) {
-                            PreviewRow("涉及金额", MoneyUtils.formatCents(preview.totalAmount))
-                        }
-                        if (preview.dateRange.isNotEmpty()) {
-                            PreviewRow("时间跨度", preview.dateRange)
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(4.dp))
-                Text("冲突处理策略：", style = MaterialTheme.typography.bodyMedium)
-
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(
-                        selected = selectedStrategy == ConflictStrategy.SKIP,
-                        onClick = { selectedStrategy = ConflictStrategy.SKIP },
-                        label = { Text("跳过") }
-                    )
-                    FilterChip(
-                        selected = selectedStrategy == ConflictStrategy.OVERWRITE,
-                        onClick = { selectedStrategy = ConflictStrategy.OVERWRITE },
-                        label = { Text("覆盖") }
-                    )
-                    FilterChip(
-                        selected = selectedStrategy == ConflictStrategy.MERGE,
-                        onClick = { selectedStrategy = ConflictStrategy.MERGE },
-                        label = { Text("合并") }
-                    )
-                }
-            }
-        }
-    )
-}
-
-@Composable
-private fun PreviewRow(label: String, value: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 2.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(label, style = MaterialTheme.typography.bodySmall)
-        Text(
-            value,
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.Medium
-        )
-    }
-}
-
-@Composable
-private fun ImportResultDialog(
-    result: ImportResult,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("确定")
-            }
-        },
-        icon = {
-            if (result.isSuccess) {
-                Icon(
-                    Icons.Default.CheckCircle,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-        },
-        title = { Text(if (result.isSuccess) "导入成功" else "导入完成（有错误）") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
-                        PreviewRow("联系人", "${result.personsImported} 条")
-                        PreviewRow("借条", "${result.loansImported} 条")
-                        PreviewRow("还款记录", "${result.repaymentsImported} 条")
-                        PreviewRow("支付方式", "${result.paymentMethodsImported} 条")
-                    }
-                }
-
-                if (result.errors.isNotEmpty()) {
-                    Text(
-                        "错误信息 (${result.errors.size} 条)：",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                    Column {
-                        result.errors.take(5).forEach { error ->
-                            Text(
-                                text = error,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        }
-                        if (result.errors.size > 5) {
-                            Text(
-                                text = "...还有 ${result.errors.size - 5} 条错误",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    )
-}
-
-@Composable
-private fun IntegrityReportDialog(
-    report: DataIntegrityChecker.IntegrityReport,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("确定")
-            }
-        },
-        icon = {
-            if (report.isHealthy) {
-                Icon(
-                    Icons.Default.CheckCircle,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
-            }
-        },
-        title = { Text(if (report.isHealthy) "数据完整性检查通过" else "发现数据问题") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (report.isHealthy) {
-                    Text(
-                        "所有数据记录关联完整，状态一致。",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                } else {
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            if (report.orphanLoans > 0) {
-                                PreviewRow("孤儿借条", "${report.orphanLoans} 条")
-                            }
-                            if (report.orphanRepayments > 0) {
-                                PreviewRow("孤儿还款", "${report.orphanRepayments} 条")
-                            }
-                            if (report.statusMismatches > 0) {
-                                PreviewRow("状态不一致", "${report.statusMismatches} 条")
-                            }
-                        }
-                    }
-
-                    Column {
-                        report.issues.take(5).forEach { issue ->
-                            Text(
-                                text = issue,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        }
-                        if (report.issues.size > 5) {
-                            Text(
-                                text = "...还有 ${report.issues.size - 5} 个问题",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    )
 }

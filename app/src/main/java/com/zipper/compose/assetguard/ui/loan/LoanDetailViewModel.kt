@@ -56,9 +56,17 @@ class LoanDetailViewModel(
 
         pendingDeleteJob = viewModelScope.launch {
             delay(5000)
-            repaymentRepository.delete(repayment)
-            _pendingDeleteRepaymentId.value = null
-            pendingDeleteRepayment = null
+            repaymentRepository.delete(repayment).onSuccess {
+                _pendingDeleteRepaymentId.value = null
+                pendingDeleteRepayment = null
+            }
+        }
+    }
+
+    fun deleteLoan() {
+        viewModelScope.launch {
+            val loan = loanRepository.getById(loanId) ?: return@launch
+            loanRepository.delete(loan)
         }
     }
 

@@ -1,27 +1,27 @@
 package com.zipper.compose.assetguard.ui.settings
 
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -29,6 +29,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,11 +38,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.zipper.compose.assetguard.R
 import com.zipper.compose.assetguard.data.local.entity.PaymentMethodEntity
 import com.zipper.compose.assetguard.di.AppContainer
 import com.zipper.compose.assetguard.ui.components.ConfirmDialog
+import com.zipper.compose.assetguard.ui.theme.spacing
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -51,68 +56,159 @@ fun PaymentMethodManageScreen(
     onBack: () -> Unit
 ) {
     val paymentMethods by container.paymentMethodRepository.observeAll().collectAsStateWithLifecycle(initialValue = emptyList())
+    val context = LocalContext.current
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var showAddDialog by remember { mutableStateOf(false) }
     var newMethodName by remember { mutableStateOf("") }
     var methodToDelete by remember { mutableStateOf<PaymentMethodEntity?>(null) }
 
+    val builtinMethods = paymentMethods.filter { it.isBuiltin }
+    val customMethods = paymentMethods.filter { !it.isBuiltin }
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("支付方式管理") },
+                title = { Text(stringResource(R.string.payment_method_manage_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.action_back))
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                )
             )
         },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { showAddDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = "添加支付方式")
+        bottomBar = {
+            OutlinedButton(
+                onClick = { showAddDialog = true },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = MaterialTheme.spacing.lg, vertical = MaterialTheme.spacing.md),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+                shape = MaterialTheme.shapes.medium
+            ) {
+                Text(
+                    text = "+ ${stringResource(R.string.payment_method_add)}",
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(paddingValues),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+                .padding(paddingValues)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = MaterialTheme.spacing.lg)
         ) {
-            items(paymentMethods, key = { it.id }) { method ->
-                Card(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        modifier = Modifier
-                            .padding(16.dp)
-                            .fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+            // ---- 内置方式 ----
+            if (builtinMethods.isNotEmpty()) {
+                Text(
+                    text = "\u5185\u7f6e\u65b9\u5f0f",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(
+                        top = MaterialTheme.spacing.lg,
+                        bottom = MaterialTheme.spacing.sm
+                    )
+                )
+
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    builtinMethods.forEachIndexed { index, method ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = MaterialTheme.spacing.lg, vertical = MaterialTheme.spacing.md),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Text(
                                 text = method.name,
-                                style = MaterialTheme.typography.bodyLarge
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.weight(1f)
                             )
-                            if (method.isBuiltin) {
-                                Icon(
-                                    Icons.Default.Lock,
-                                    contentDescription = "内置",
-                                    modifier = Modifier.padding(start = 8.dp),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
-                                )
-                            }
+                            Icon(
+                                Icons.Default.Lock,
+                                contentDescription = stringResource(R.string.label_builtin),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            )
                         }
-                        if (!method.isBuiltin) {
-                            IconButton(onClick = { methodToDelete = method }) {
-                                Icon(Icons.Default.Delete, contentDescription = "删除")
-                            }
+                        if (index < builtinMethods.lastIndex) {
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.outlineVariant,
+                                modifier = Modifier.padding(horizontal = MaterialTheme.spacing.lg)
+                            )
                         }
                     }
                 }
             }
+
+            // ---- 自定义方式 ----
+            Text(
+                text = "\u81ea\u5b9a\u4e49\u65b9\u5f0f",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(
+                    top = MaterialTheme.spacing.lg,
+                    bottom = MaterialTheme.spacing.sm
+                )
+            )
+
+            if (customMethods.isNotEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    ),
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    customMethods.forEachIndexed { index, method ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = MaterialTheme.spacing.lg, end = MaterialTheme.spacing.xs, top = MaterialTheme.spacing.xs, bottom = MaterialTheme.spacing.xs),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = method.name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.weight(1f)
+                            )
+                            IconButton(onClick = { methodToDelete = method }) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = stringResource(R.string.action_delete),
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        }
+                        if (index < customMethods.lastIndex) {
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.outlineVariant,
+                                modifier = Modifier.padding(horizontal = MaterialTheme.spacing.lg)
+                            )
+                        }
+                    }
+                }
+            } else {
+                Text(
+                    text = "\u6682\u65e0\u81ea\u5b9a\u4e49\u652f\u4ed8\u65b9\u5f0f",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = MaterialTheme.spacing.md)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(MaterialTheme.spacing.lg))
         }
     }
 
@@ -120,12 +216,12 @@ fun PaymentMethodManageScreen(
     if (showAddDialog) {
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { showAddDialog = false; newMethodName = "" },
-            title = { Text("添加支付方式") },
+            title = { Text(stringResource(R.string.payment_method_add_dialog_title)) },
             text = {
                 OutlinedTextField(
                     value = newMethodName,
                     onValueChange = { newMethodName = it },
-                    label = { Text("名称") },
+                    label = { Text(stringResource(R.string.label_name)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -143,10 +239,10 @@ fun PaymentMethodManageScreen(
                             }
                         }
                     }
-                ) { Text("添加") }
+                ) { Text(stringResource(R.string.action_add)) }
             },
             dismissButton = {
-                TextButton(onClick = { showAddDialog = false; newMethodName = "" }) { Text("取消") }
+                TextButton(onClick = { showAddDialog = false; newMethodName = "" }) { Text(stringResource(R.string.action_cancel)) }
             }
         )
     }
@@ -154,13 +250,13 @@ fun PaymentMethodManageScreen(
     // 删除确认
     methodToDelete?.let { method ->
         ConfirmDialog(
-            title = "删除支付方式",
-            message = "确定要删除「${method.name}」吗？",
+            title = stringResource(R.string.payment_method_delete_title),
+            message = stringResource(R.string.payment_method_delete_msg, method.name),
             onConfirm = {
                 scope.launch {
                     val result = container.paymentMethodRepository.delete(method)
                     result.onFailure {
-                        snackbarHostState.showSnackbar(it.message ?: "删除失败")
+                        snackbarHostState.showSnackbar(it.message ?: context.getString(R.string.payment_method_delete_failed))
                     }
                 }
                 methodToDelete = null

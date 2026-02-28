@@ -60,4 +60,7 @@ interface PersonDao {
 
     @Query("SELECT * FROM persons ORDER BY updatedAt DESC")
     suspend fun getAll(): List<PersonEntity>
+
+    @Query("SELECT * FROM persons WHERE name LIKE '%' || :query || '%' OR phone LIKE '%' || :query || '%' ORDER BY updatedAt DESC LIMIT 10")
+    suspend fun searchByName(query: String): List<PersonEntity>
 }
